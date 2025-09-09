@@ -3,6 +3,8 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { useLocalStorage } from './use-local-storage';
 import { type User } from '@/types';
 import { useRouter, usePathname } from 'next/navigation';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -18,9 +20,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!user && pathname !== '/login') {
-      router.push('/login');
-    } else if (user && pathname === '/login') {
+    const isAuthPage = pathname === '/login' || pathname === '/role-selection';
+    if (!user && !isAuthPage) {
+      router.push('/role-selection');
+    } else if (user && isAuthPage) {
       router.push(user.role === 'Admin' ? '/tickets' : '/tickets/new');
     }
   }, [user, pathname, router]);
@@ -30,10 +33,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push(userData.role === 'Admin' ? '/tickets' : '/tickets/new');
   }, [setUser, router]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    if (user?.role === 'Admin') {
+      await signOut(auth);
+    }
     setUser(null);
-    router.push('/login');
-  }, [setUser, router]);
+    router.push('/role-selection');
+  }, [setUser, router, user]);
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>

@@ -1,3 +1,4 @@
+
 "use client"
 import { usePathname } from 'next/navigation';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -18,13 +19,13 @@ export function AppHeader() {
   const getTitle = () => {
     if (!user) return 'Welcome';
     if (pathname.startsWith('/tickets/new')) return 'Create New Ticket';
-    if (pathname.startsWith('/tickets/[id]')) return 'Ticket Details';
+    if (pathname.startsWith('/tickets/')) return 'Ticket Details';
     if (pathname.startsWith('/tickets')) return 'Ticket Dashboard';
     if (pathname.startsWith('/bills')) return 'Bill Management';
     return user.role === 'Admin' ? 'Admin Dashboard' : 'Employee Dashboard';
   };
   
-  const showHeader = pathname !== '/login';
+  const showHeader = !['/login', '/role-selection'].includes(pathname);
 
   if (!showHeader) {
     return null;
@@ -35,7 +36,7 @@ export function AppHeader() {
       <div className="md:hidden">
         <SidebarTrigger />
       </div>
-      <h1 className="text-lg font-semibold md:text-xl">{isClient ? getTitle() : 'Welcome'}</h1>
+      <h1 className="text-lg font-semibold md:text-xl">{isClient ? getTitle() : ''}</h1>
       <div className="ml-auto flex items-center gap-4">
         {user && (
           <>

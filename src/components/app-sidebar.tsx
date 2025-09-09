@@ -11,7 +11,7 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
-import { Ticket, FileText, PlusCircle, LayoutDashboard } from 'lucide-react';
+import { FileText, PlusCircle, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 
@@ -24,7 +24,7 @@ export function AppSidebar() {
     setIsClient(true);
   }, []);
 
-  const showSidebar = pathname !== '/login';
+  const showSidebar = !['/login', '/role-selection'].includes(pathname);
 
   if (!showSidebar) {
     return null;
@@ -40,7 +40,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {!isClient ? (
+          {!isClient || !user ? (
             <>
               <SidebarMenuItem>
                 <SidebarMenuSkeleton showIcon />
