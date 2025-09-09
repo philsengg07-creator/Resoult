@@ -40,28 +40,14 @@ export default function TicketsPage() {
       <AdminDashboard tickets={tickets} />
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">All Tickets</h2>
-        <Button asChild>
-          <Link href="/tickets/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Ticket
-          </Link>
-        </Button>
       </div>
 
       {sortedTickets.length === 0 ? (
         <Card className="text-center py-12">
           <CardHeader>
             <CardTitle>No tickets yet</CardTitle>
-            <CardDescription>Get started by creating a new ticket.</CardDescription>
+            <CardDescription>No tickets have been submitted by employees.</CardDescription>
           </CardHeader>
-          <CardContent>
-             <Button asChild>
-                <Link href="/tickets/new">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Your First Ticket
-                </Link>
-            </Button>
-          </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

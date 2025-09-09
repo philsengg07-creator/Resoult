@@ -40,7 +40,10 @@ export function TicketForm() {
     if (user?.name) {
       form.setValue('name', user.name);
     }
-  }, [user, form]);
+    if (user?.role === 'Admin') {
+        router.push('/tickets');
+    }
+  }, [user, form, router]);
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -81,11 +84,9 @@ export function TicketForm() {
         title: 'Ticket Created!',
         description: 'Your support ticket has been submitted.',
       });
-      router.push(user?.role === 'Admin' ? '/tickets' : '/tickets/new');
-      if (user?.role === 'Employee') {
-        form.reset({ name: user.name, problemDescription: '', additionalInfo: '' });
-        removePhoto();
-      }
+      
+      form.reset({ name: user?.name ?? '', problemDescription: '', additionalInfo: '' });
+      removePhoto();
 
     } catch (error) {
       console.error('Failed to create ticket:', error);
@@ -97,6 +98,10 @@ export function TicketForm() {
     } finally {
         setIsSubmitting(false);
     }
+  }
+
+  if (user?.role === 'Admin') {
+    return null;
   }
 
   return (

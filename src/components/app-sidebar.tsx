@@ -1,4 +1,3 @@
-
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -85,18 +84,20 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === '/tickets/new'}
-                  tooltip="New Ticket"
-                >
-                  <Link href="/tickets/new">
-                    <PlusCircle />
-                    <span>New Ticket</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {user?.role === 'Employee' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === '/tickets/new'}
+                      tooltip="New Ticket"
+                    >
+                      <Link href="/tickets/new">
+                        <PlusCircle />
+                        <span>New Ticket</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+              )}
 
               {user?.role === 'Admin' && (
                 <SidebarMenuItem>
