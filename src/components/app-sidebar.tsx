@@ -52,7 +52,7 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith('/tickets') && pathname !== '/tickets'}
+                isActive={pathname.startsWith('/tickets/') && pathname !== '/tickets'}
                 tooltip="Tickets"
               >
                 <Link href="/tickets">
