@@ -4,14 +4,21 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export function AppHeader() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   const getTitle = () => {
     if (!user) return 'Welcome';
     if (pathname.startsWith('/tickets/new')) return 'Create New Ticket';
+    if (pathname.startsWith('/tickets/[id]')) return 'Ticket Details';
     if (pathname.startsWith('/tickets')) return 'Ticket Dashboard';
     if (pathname.startsWith('/bills')) return 'Bill Management';
     return user.role === 'Admin' ? 'Admin Dashboard' : 'Employee Dashboard';
@@ -28,7 +35,7 @@ export function AppHeader() {
       <div className="md:hidden">
         <SidebarTrigger />
       </div>
-      <h1 className="text-lg font-semibold md:text-xl">{getTitle()}</h1>
+      <h1 className="text-lg font-semibold md:text-xl">{isClient ? getTitle() : 'Welcome'}</h1>
       <div className="ml-auto flex items-center gap-4">
         {user && (
           <>
