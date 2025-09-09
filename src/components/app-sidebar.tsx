@@ -8,14 +8,21 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
 import { Ticket, FileText, PlusCircle, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useState, useEffect } from 'react';
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const showSidebar = pathname !== '/login';
 
@@ -33,62 +40,72 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {user?.role === 'Admin' && (
-             <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === '/tickets'}
-                tooltip="Dashboard"
-              >
-                <Link href="/tickets">
-                  <LayoutDashboard />
-                  <span>Dashboard</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+          {!isClient ? (
+            <>
+              <SidebarMenuSkeleton showIcon />
+              <SidebarMenuSkeleton showIcon />
+              <SidebarMenuSkeleton showIcon />
+            </>
+          ) : (
+            <>
+              {user?.role === 'Admin' && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/tickets'}
+                    tooltip="Dashboard"
+                  >
+                    <Link href="/tickets">
+                      <LayoutDashboard />
+                      <span>Dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
-          {user?.role === 'Admin' && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname.startsWith('/tickets/') && pathname !== '/tickets'}
-                tooltip="Tickets"
-              >
-                <Link href="/tickets">
-                  <Ticket />
-                  <span>Tickets</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+              {user?.role === 'Admin' && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith('/tickets/') && pathname !== '/tickets/new'}
+                    tooltip="Tickets"
+                  >
+                    <Link href="/tickets">
+                      <Ticket />
+                      <span>Tickets</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname.startsWith('/tickets/new')}
-              tooltip="New Ticket"
-            >
-              <Link href="/tickets/new">
-                <PlusCircle />
-                <span>New Ticket</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith('/tickets/new')}
+                  tooltip="New Ticket"
+                >
+                  <Link href="/tickets/new">
+                    <PlusCircle />
+                    <span>New Ticket</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
-          {user?.role === 'Admin' && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname.startsWith('/bills')}
-                tooltip="Bills"
-              >
-                <Link href="/bills">
-                  <FileText />
-                  <span>Bills</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+              {user?.role === 'Admin' && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith('/bills')}
+                    tooltip="Bills"
+                  >
+                    <Link href="/bills">
+                      <FileText />
+                      <span>Bills</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+            </>
           )}
         </SidebarMenu>
       </SidebarContent>
