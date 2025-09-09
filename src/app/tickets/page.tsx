@@ -1,0 +1,76 @@
+'use client';
+import Link from 'next/link';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { type Ticket, type TicketStatus } from '@/types';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+
+const statusColors: Record<TicketStatus, string> = {
+  'Open': 'bg-green-500 hover:bg-green-600',
+  'In Progress': 'bg-yellow-500 hover:bg-yellow-600',
+  'Closed': 'bg-red-500 hover:bg-red-600',
+};
+
+export default function TicketsPage() {
+  const [tickets] = useLocalStorage<Ticket[]>('tickets', []);
+
+  const sortedTickets = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return (
+    <div className="container mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold">All Tickets</h2>
+        <Button asChild>
+          <Link href="/tickets/new">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Ticket
+          </Link>
+        </Button>
+      </div>
+
+      {sortedTickets.length === 0 ? (
+        <Card className="text-center py-12">
+          <CardHeader>
+            <CardTitle>No tickets yet</CardTitle>
+            <CardDescription>Get started by creating a new ticket.</CardDescription>
+          </CardHeader>
+          <CardContent>
+             <Button asChild>
+                <Link href="/tickets/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Your First Ticket
+                </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {sortedTickets.map((ticket) => (
+            <Card key={ticket.id} className="flex flex-col">
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <CardTitle className="pr-4">{ticket.summary || 'Ticket'}</CardTitle>
+                  <Badge variant="secondary" className={`whitespace-nowrap ${statusColors[ticket.status]}`}>{ticket.status}</Badge>
+                </div>
+                <CardDescription>
+                  Submitted by {ticket.name} • {formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <p className="text-sm text-muted-foreground line-clamp-3">{ticket.problemDescription}</p>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full" variant="outline">
+                  <Link href={`/tickets/${ticket.id}`}>View Details</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
