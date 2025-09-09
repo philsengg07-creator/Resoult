@@ -58,27 +58,12 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === '/tickets'}
+                    isActive={pathname.startsWith('/tickets')}
                     tooltip="Dashboard"
                   >
                     <Link href="/tickets">
                       <LayoutDashboard />
                       <span>Dashboard</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              {user?.role === 'Admin' && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith('/tickets/') && pathname !== '/tickets' && pathname !== '/tickets/new'}
-                    tooltip="Tickets"
-                  >
-                    <Link href="/tickets">
-                      <Ticket />
-                      <span>Tickets</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
