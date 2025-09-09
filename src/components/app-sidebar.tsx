@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -42,9 +43,15 @@ export function AppSidebar() {
         <SidebarMenu>
           {!isClient ? (
             <>
-              <SidebarMenuSkeleton showIcon />
-              <SidebarMenuSkeleton showIcon />
-              <SidebarMenuSkeleton showIcon />
+              <SidebarMenuItem>
+                <SidebarMenuSkeleton showIcon />
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuSkeleton showIcon />
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuSkeleton showIcon />
+              </SidebarMenuItem>
             </>
           ) : (
             <>
@@ -67,7 +74,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname.startsWith('/tickets/') && pathname !== '/tickets/new'}
+                    isActive={pathname.startsWith('/tickets/') && pathname !== '/tickets' && pathname !== '/tickets/new'}
                     tooltip="Tickets"
                   >
                     <Link href="/tickets">
