@@ -148,13 +148,13 @@ export function TicketForm() {
             <FormItem>
               <FormLabel>Attach Photo (optional)</FormLabel>
               <FormControl>
-                <>
+                <div>
                   <Input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
                   <Button type="button" variant="outline" onClick={() => document.getElementById('photo-upload')?.click()} className="w-full">
                     <Upload className="mr-2 h-4 w-4" />
                     Upload Image
                   </Button>
-                </>
+                </div>
               </FormControl>
               {photoPreview && (
                 <div className="relative mt-4 w-full h-48 rounded-md overflow-hidden border">
