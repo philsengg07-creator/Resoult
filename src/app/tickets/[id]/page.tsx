@@ -98,15 +98,6 @@ export default function TicketDetailsPage() {
               </CardContent>
             </Card>
           )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Suggested Solutions (AI)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{ticket.suggestedSolutions || 'No solutions suggested.'}</p>
-            </CardContent>
-          </Card>
         </div>
         <div className="space-y-6">
           {ticket.photo && (
@@ -121,14 +112,6 @@ export default function TicketDetailsPage() {
               </CardContent>
             </Card>
           )}
-          <Card>
-            <CardHeader>
-              <CardTitle>Image Analysis (AI)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{ticket.imageAnalysis || 'No image provided for analysis.'}</p>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

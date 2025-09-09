@@ -8,9 +8,7 @@ export interface Ticket {
   photo?: string; // base64 data URI
   createdAt: string;
   status: TicketStatus;
-  summary?: string;
-  suggestedSolutions?: string;
-  imageAnalysis?: string;
+  summary: string;
 }
 
 export interface Bill {
