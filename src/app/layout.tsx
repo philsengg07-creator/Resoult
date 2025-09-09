@@ -4,6 +4,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppHeader } from '@/components/app-header';
 import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/hooks/use-auth';
 
 export const metadata: Metadata = {
   title: 'Resolut',
@@ -28,15 +29,17 @@ export default function RootLayout({
         <meta name="theme-color" content="#3F51B5" />
       </head>
       <body className="font-body antialiased">
-        <SidebarProvider>
-          <div className="flex min-h-screen w-full">
-            <AppSidebar />
-            <div className="flex flex-1 flex-col">
-              <AppHeader />
-              <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        <AuthProvider>
+          <SidebarProvider>
+            <div className="flex min-h-screen w-full">
+              <AppSidebar />
+              <div className="flex flex-1 flex-col">
+                <AppHeader />
+                <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+              </div>
             </div>
-          </div>
-        </SidebarProvider>
+          </SidebarProvider>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>

@@ -20,3 +20,8 @@ export interface Bill {
   file?: string; // base64 data URI
   createdAt: string;
 }
+
+export interface User {
+  name: string;
+  role: 'Admin' | 'Employee';
+}

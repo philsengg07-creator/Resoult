@@ -10,10 +10,18 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
-import { Ticket, FileText, PlusCircle } from 'lucide-react';
+import { Ticket, FileText, PlusCircle, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const showSidebar = pathname !== '/login';
+
+  if (!showSidebar) {
+    return null;
+  }
 
   return (
     <Sidebar>
@@ -25,18 +33,36 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname.startsWith('/tickets')}
-              tooltip="Tickets"
-            >
-              <Link href="/tickets">
-                <Ticket />
-                <span>Tickets</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {user?.role === 'Admin' && (
+             <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/tickets'}
+                tooltip="Dashboard"
+              >
+                <Link href="/tickets">
+                  <LayoutDashboard />
+                  <span>Dashboard</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
+          {user?.role === 'Admin' && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith('/tickets') && pathname !== '/tickets'}
+                tooltip="Tickets"
+              >
+                <Link href="/tickets">
+                  <Ticket />
+                  <span>Tickets</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
@@ -49,18 +75,21 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname.startsWith('/bills')}
-              tooltip="Bills"
-            >
-              <Link href="/bills">
-                <FileText />
-                <span>Bills</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+
+          {user?.role === 'Admin' && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith('/bills')}
+                tooltip="Bills"
+              >
+                <Link href="/bills">
+                  <FileText />
+                  <span>Bills</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>

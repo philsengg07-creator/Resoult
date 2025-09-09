@@ -1,12 +1,14 @@
 'use client';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { type Ticket, type TicketStatus } from '@/types';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/use-auth';
+import { useEffect } from 'react';
 
 const statusColors: Record<TicketStatus, string> = {
   'Open': 'bg-green-500 hover:bg-green-600',
@@ -16,9 +18,21 @@ const statusColors: Record<TicketStatus, string> = {
 
 export default function TicketDetailsPage() {
   const params = useParams();
+  const router = useRouter();
+  const { user } = useAuth();
   const { id } = params;
   const [tickets, setTickets] = useLocalStorage<Ticket[]>('tickets', []);
   const ticket = tickets.find((t) => t.id === id);
+
+  useEffect(() => {
+    if (user?.role === 'Employee') {
+      router.push('/tickets/new');
+    }
+  }, [user, router]);
+  
+  if (user?.role === 'Employee') {
+    return null;
+  }
 
   if (!ticket) {
     return (

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
+import { useAuth } from '@/hooks/use-auth';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -26,6 +27,7 @@ const formSchema = z.object({
 
 export function TicketForm() {
   const router = useRouter();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [, setTickets] = useLocalStorage<Ticket[]>('tickets', []);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -37,6 +39,12 @@ export function TicketForm() {
     resolver: zodResolver(formSchema),
     defaultValues: { name: '', problemDescription: '', additionalInfo: '' },
   });
+
+  useEffect(() => {
+    if (user?.name) {
+      form.setValue('name', user.name);
+    }
+  }, [user, form]);
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -97,7 +105,12 @@ export function TicketForm() {
         title: 'Ticket Created!',
         description: 'Your support ticket has been submitted and is being processed.',
       });
-      router.push('/tickets');
+      router.push(user?.role === 'Admin' ? '/tickets' : '/tickets/new');
+      if (user?.role === 'Employee') {
+        form.reset({ name: user.name, problemDescription: '', additionalInfo: '' });
+        removePhoto();
+        setIsSubmitting(false);
+      }
 
     } catch (error) {
       console.error('Failed to create ticket:', error);
@@ -126,7 +139,7 @@ export function TicketForm() {
                 <FormItem>
                   <FormLabel>Your Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Jane Doe" {...field} />
+                    <Input placeholder="e.g. Jane Doe" {...field} disabled={!!user?.name} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

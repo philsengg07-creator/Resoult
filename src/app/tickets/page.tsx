@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { AdminDashboard } from './admin-dashboard';
 
 const statusColors: Record<TicketStatus, string> = {
   'Open': 'bg-green-500 hover:bg-green-600',
@@ -16,12 +20,25 @@ const statusColors: Record<TicketStatus, string> = {
 
 export default function TicketsPage() {
   const [tickets] = useLocalStorage<Ticket[]>('tickets', []);
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role === 'Employee') {
+      router.push('/tickets/new');
+    }
+  }, [user, router]);
+
+  if (user?.role === 'Employee') {
+    return null;
+  }
 
   const sortedTickets = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
-    <div className="container mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto space-y-6">
+      <AdminDashboard tickets={tickets} />
+      <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">All Tickets</h2>
         <Button asChild>
           <Link href="/tickets/new">
