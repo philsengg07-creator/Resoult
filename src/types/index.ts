@@ -15,6 +15,7 @@ export interface Ticket {
 export interface User {
   name: string;
   role: 'Admin' | 'Employee';
+  email?: string;
 }
 
 export interface Renewal {

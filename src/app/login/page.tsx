@@ -82,13 +82,13 @@ function LoginPageContent() {
             const loginValues = values as AdminLoginValues;
             userCredential = await signInWithEmailAndPassword(auth, loginValues.email, loginValues.password);
         }
-
-      if (userCredential.user.displayName) {
-        login({ name: userCredential.user.displayName, role: 'Admin' });
+      
+      const loggedInUser = userCredential.user;
+      if (loggedInUser.displayName && loggedInUser.email) {
+        login({ name: loggedInUser.displayName, role: 'Admin', email: loggedInUser.email });
       } else {
-        // Fallback if displayName is not set, which can happen on first login after signup
-         const nameFromEmail = userCredential.user.email?.split('@')[0] || 'Admin';
-         login({ name: nameFromEmail, role: 'Admin' });
+         const nameFromEmail = loggedInUser.email?.split('@')[0] || 'Admin';
+         login({ name: nameFromEmail, role: 'Admin', email: loggedInUser.email ?? undefined });
       }
     } catch (error: any) {
       console.error('Firebase authentication error:', error);

@@ -3,8 +3,9 @@
 import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { useLocalStorage } from './use-local-storage';
 import { type Renewal, type AppNotification } from '@/types';
-import { differenceInDays, isSameDay, startOfDay } from 'date-fns';
+import { differenceInDays, isSameDay, startOfDay, format } from 'date-fns';
 import { useAuth } from './use-auth';
+import { sendRenewalEmail } from '@/ai/flows/send-renewal-email';
 
 const RenewalContext = createContext<undefined>(undefined);
 
@@ -52,6 +53,15 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
             };
             newNotifications.push(newNotif);
 
+            if (user.email) {
+                sendRenewalEmail({
+                    adminEmail: user.email,
+                    itemName: renewal.itemName,
+                    renewalDate: format(new Date(renewal.renewalDate), 'PPP'),
+                    daysLeft: daysLeft,
+                }).catch(console.error);
+            }
+
             // Trigger desktop notification
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('Renewal Reminder', { body: message });
@@ -64,7 +74,7 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
       setNotifications(prev => [...newNotifications, ...prev]);
     }
     
-  }, [renewals, user, setNotifications]); // Rerun when renewals or user change
+  }, [renewals, user, setNotifications, notifications]); // Rerun when renewals or user change
 
   return <RenewalContext.Provider value={undefined}>{children}</RenewalContext.Provider>;
 }
