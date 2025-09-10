@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -95,7 +96,8 @@ export function TicketForm() {
 
       const newNotification: AppNotification = {
         id: crypto.randomUUID(),
-        ticketId: newTicket.id,
+        refId: newTicket.id,
+        type: 'ticket',
         message: `New ticket "${newTicket.summary}" from ${newTicket.name}.`,
         createdAt: new Date().toISOString(),
         read: false,

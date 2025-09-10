@@ -17,6 +17,19 @@ export interface User {
   role: 'Admin' | 'Employee';
 }
 
+export interface Renewal {
+  id: string;
+  itemName: string;
+  purchaseDate: string;
+  renewalDate: string;
+  notes?: string;
+}
+
 export interface AppNotification {
     id: string;
-    ticketId: string
+    refId: string; // ticketId or renewalId
+    type: 'ticket' | 'renewal';
+    message: string;
+    createdAt: string;
+    read: boolean;
+}

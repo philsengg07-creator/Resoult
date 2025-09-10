@@ -23,6 +23,7 @@ export function AppHeader() {
     if (pathname.startsWith('/tickets/new')) return 'Create New Ticket';
     if (pathname.startsWith('/tickets/')) return 'Ticket Details';
     if (pathname.startsWith('/tickets')) return 'All Tickets';
+    if (pathname.startsWith('/renewals')) return 'Renewals';
     return user.role === 'Admin' ? 'Admin Dashboard' : 'Employee Dashboard';
   };
   

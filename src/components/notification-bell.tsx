@@ -7,7 +7,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { type AppNotification } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Bell, Ticket } from 'lucide-react';
+import { Bell, Ticket, CalendarClock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ScrollArea } from './ui/scroll-area';
 
@@ -29,11 +29,11 @@ export function NotificationBell() {
     setNotifications(
       notifications.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
     );
-    setIsOpen(false);
   };
 
-  const unreadNotifications = notifications.filter(n => !n.read);
-
+  const sortedNotifications = isClient ? [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  const unreadNotifications = sortedNotifications.filter(n => !n.read);
+  
   if (!isClient) return null;
 
   return (
@@ -59,12 +59,16 @@ export function NotificationBell() {
             {unreadNotifications.map((notification) => (
               <Link
                 key={notification.id}
-                href={`/tickets/${notification.ticketId}`}
+                href={notification.type === 'renewal' ? `/renewals` : `/tickets/${notification.refId}`}
                 className="flex items-start gap-4 p-4 hover:bg-muted/50"
                 onClick={() => handleNotificationClick(notification.id)}
               >
                 <div className="flex-shrink-0 pt-1">
-                    <Ticket className="h-5 w-5 text-muted-foreground" />
+                    {notification.type === 'renewal' ? (
+                      <CalendarClock className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Ticket className="h-5 w-5 text-muted-foreground" />
+                    )}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm">{notification.message}</p>

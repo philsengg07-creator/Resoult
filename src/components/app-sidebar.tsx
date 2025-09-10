@@ -12,7 +12,7 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
-import { PlusCircle, LayoutDashboard, Ticket } from 'lucide-react';
+import { PlusCircle, LayoutDashboard, Ticket, CalendarClock } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 
@@ -78,6 +78,18 @@ export function AppSidebar() {
                       <Link href="/tickets">
                         <Ticket />
                         <span>Tickets</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith('/renewals')}
+                      tooltip="Renewals"
+                    >
+                      <Link href="/renewals">
+                        <CalendarClock />
+                        <span>Renewals</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
