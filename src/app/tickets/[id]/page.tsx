@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const statusColors: Record<TicketStatus, string> = {
   'Open': 'bg-green-500 hover:bg-green-600',
@@ -23,14 +23,19 @@ export default function TicketDetailsPage() {
   const { id } = params;
   const [tickets, setTickets] = useLocalStorage<Ticket[]>('tickets', []);
   const ticket = tickets.find((t) => t.id === id);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (user?.role === 'Employee') {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient && user?.role === 'Employee') {
       router.push('/tickets/new');
     }
-  }, [user, router]);
+  }, [user, router, isClient]);
   
-  if (user?.role === 'Employee') {
+  if (!isClient || user?.role === 'Employee') {
     return null;
   }
 

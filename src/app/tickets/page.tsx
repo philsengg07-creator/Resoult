@@ -9,7 +9,7 @@ import { Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminDashboard } from './admin-dashboard';
 
 const statusColors: Record<TicketStatus, string> = {
@@ -22,14 +22,19 @@ export default function TicketsPage() {
   const [tickets] = useLocalStorage<Ticket[]>('tickets', []);
   const { user } = useAuth();
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (user?.role === 'Employee') {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient && user?.role === 'Employee') {
       router.push('/tickets/new');
     }
-  }, [user, router]);
+  }, [user, router, isClient]);
 
-  if (user?.role === 'Employee') {
+  if (!isClient || user?.role === 'Employee') {
     return null;
   }
 

@@ -30,6 +30,11 @@ export function TicketForm() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -37,13 +42,13 @@ export function TicketForm() {
   });
 
   useEffect(() => {
-    if (user?.name) {
+    if (isClient && user?.name) {
       form.setValue('name', user.name);
     }
-    if (user?.role === 'Admin') {
+    if (isClient && user?.role === 'Admin') {
         router.push('/tickets');
     }
-  }, [user, form, router]);
+  }, [user, form, router, isClient]);
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -100,7 +105,7 @@ export function TicketForm() {
     }
   }
 
-  if (user?.role === 'Admin') {
+  if (!isClient || user?.role === 'Admin') {
     return null;
   }
 
