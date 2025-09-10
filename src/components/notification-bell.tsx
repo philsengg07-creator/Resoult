@@ -32,6 +32,8 @@ export function NotificationBell() {
     setIsOpen(false);
   };
 
+  const unreadNotifications = notifications.filter(n => !n.read);
+
   if (!isClient) return null;
 
   return (
@@ -52,9 +54,9 @@ export function NotificationBell() {
           <h4 className="font-medium text-sm">Notifications</h4>
         </div>
         <ScrollArea className="h-[300px]">
-        {notifications.length > 0 ? (
+        {unreadNotifications.length > 0 ? (
           <div className="flex flex-col">
-            {notifications.map((notification) => (
+            {unreadNotifications.map((notification) => (
               <Link
                 key={notification.id}
                 href={`/tickets/${notification.ticketId}`}
