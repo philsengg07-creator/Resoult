@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminDashboard } from './admin-dashboard';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const statusColors: Record<TicketStatus, string> = {
   'Open': 'bg-green-500 hover:bg-green-600',
@@ -23,6 +24,7 @@ export default function TicketsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'All'>('All');
 
   useEffect(() => {
     setIsClient(true);
@@ -40,23 +42,41 @@ export default function TicketsPage() {
 
   const sortedTickets = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  const filteredTickets = sortedTickets.filter(ticket => 
+    statusFilter === 'All' || ticket.status === statusFilter
+  );
+
   return (
     <div className="container mx-auto space-y-6">
       <AdminDashboard tickets={tickets} />
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">All Tickets</h2>
+      <div className="flex items-center justify-end">
+        <Select onValueChange={(value) => setStatusFilter(value as TicketStatus | 'All')} value={statusFilter}>
+            <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="All">All Statuses</SelectItem>
+                <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Closed">Closed</SelectItem>
+            </SelectContent>
+        </Select>
       </div>
 
-      {sortedTickets.length === 0 ? (
+      {filteredTickets.length === 0 ? (
         <Card className="text-center py-12">
           <CardHeader>
-            <CardTitle>No tickets yet</CardTitle>
-            <CardDescription>No tickets have been submitted by employees.</CardDescription>
+            <CardTitle>No tickets found</CardTitle>
+            <CardDescription>
+              {statusFilter === 'All' 
+                ? 'No tickets have been submitted by employees.' 
+                : `There are no tickets with the status "${statusFilter}".`}
+            </CardDescription>
           </CardHeader>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sortedTickets.map((ticket) => (
+          {filteredTickets.map((ticket) => (
             <Card key={ticket.id} className="flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-start">
