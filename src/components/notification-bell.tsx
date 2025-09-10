@@ -33,10 +33,6 @@ export function NotificationBell() {
     }
   };
 
-  const handleNotificationClick = () => {
-    setIsOpen(false);
-  };
-  
   if (!isClient) return null;
 
   return (
@@ -64,7 +60,6 @@ export function NotificationBell() {
                 key={notification.id}
                 href={`/tickets/${notification.ticketId}`}
                 className="flex items-start gap-4 p-4 hover:bg-muted/50"
-                onClick={handleNotificationClick}
               >
                 <div className="flex-shrink-0 pt-1">
                     <Ticket className="h-5 w-5 text-muted-foreground" />
