@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -46,7 +47,7 @@ export function TicketForm() {
       form.setValue('name', user.name);
     }
     if (isClient && user?.role === 'Admin') {
-        router.push('/tickets');
+        router.push('/dashboard');
     }
   }, [user, form, router, isClient]);
 

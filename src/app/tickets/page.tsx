@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -5,12 +6,10 @@ import { type Ticket, type TicketStatus } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { AdminDashboard } from './admin-dashboard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const statusColors: Record<TicketStatus, string> = {
@@ -48,8 +47,8 @@ export default function TicketsPage() {
 
   return (
     <div className="container mx-auto space-y-6">
-      <AdminDashboard tickets={tickets} />
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">All Tickets</h1>
         <Select onValueChange={(value) => setStatusFilter(value as TicketStatus | 'All')} value={statusFilter}>
             <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />

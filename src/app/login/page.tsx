@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
@@ -58,7 +59,7 @@ function LoginPageContent() {
       router.push('/role-selection');
     }
     if (user) {
-      router.push(user.role === 'Admin' ? '/tickets' : '/tickets/new');
+      router.push(user.role === 'Admin' ? '/dashboard' : '/tickets/new');
     }
   }, [role, router, user]);
   

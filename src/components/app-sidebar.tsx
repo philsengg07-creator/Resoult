@@ -12,7 +12,7 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
-import { PlusCircle, LayoutDashboard } from 'lucide-react';
+import { PlusCircle, LayoutDashboard, Ticket } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 
@@ -56,18 +56,32 @@ export function AppSidebar() {
           ) : (
             <>
               {user?.role === 'Admin' && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith('/tickets')}
-                    tooltip="Dashboard"
-                  >
-                    <Link href="/tickets">
-                      <LayoutDashboard />
-                      <span>Dashboard</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === '/dashboard'}
+                      tooltip="Dashboard"
+                    >
+                      <Link href="/dashboard">
+                        <LayoutDashboard />
+                        <span>Dashboard</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith('/tickets')}
+                      tooltip="Tickets"
+                    >
+                      <Link href="/tickets">
+                        <Ticket />
+                        <span>Tickets</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
               )}
 
               {user?.role === 'Employee' && (

@@ -18,9 +18,10 @@ export function AppHeader() {
   
   const getTitle = () => {
     if (!user) return 'Welcome';
+    if (pathname === '/dashboard') return 'Admin Dashboard';
     if (pathname.startsWith('/tickets/new')) return 'Create New Ticket';
     if (pathname.startsWith('/tickets/')) return 'Ticket Details';
-    if (pathname.startsWith('/tickets')) return 'Ticket Dashboard';
+    if (pathname.startsWith('/tickets')) return 'All Tickets';
     return user.role === 'Admin' ? 'Admin Dashboard' : 'Employee Dashboard';
   };
   

@@ -1,3 +1,4 @@
+
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useLocalStorage } from './use-local-storage';
@@ -24,13 +25,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user && !isAuthPage) {
       router.push('/role-selection');
     } else if (user && isAuthPage) {
-      router.push(user.role === 'Admin' ? '/tickets' : '/tickets/new');
+      router.push(user.role === 'Admin' ? '/dashboard' : '/tickets/new');
     }
   }, [user, pathname, router]);
   
   const login = useCallback((userData: User) => {
     setUser(userData);
-    router.push(userData.role === 'Admin' ? '/tickets' : '/tickets/new');
+    router.push(userData.role === 'Admin' ? '/dashboard' : '/tickets/new');
   }, [setUser, router]);
 
   const logout = useCallback(async () => {
