@@ -38,7 +38,7 @@ export function AppHeader() {
       </div>
       <h1 className="text-lg font-semibold md:text-xl">{isClient ? getTitle() : ''}</h1>
       <div className="ml-auto flex items-center gap-4">
-        {user && (
+        {isClient && user && (
           <>
             <span className="text-sm text-muted-foreground hidden sm:inline">
               Welcome, {user.name} ({user.role})
