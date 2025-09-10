@@ -25,18 +25,17 @@ export function NotificationBell() {
 
   const unreadCount = isClient ? notifications.filter((n) => !n.read).length : 0;
 
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (!open) {
-      // Mark all as read when popover is closed
-      setNotifications(notifications.map((n) => ({ ...n, read: true })));
-    }
+  const handleNotificationClick = (notificationId: string) => {
+    setNotifications(
+      notifications.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+    );
+    setIsOpen(false);
   };
 
   if (!isClient) return null;
 
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
@@ -60,6 +59,7 @@ export function NotificationBell() {
                 key={notification.id}
                 href={`/tickets/${notification.ticketId}`}
                 className="flex items-start gap-4 p-4 hover:bg-muted/50"
+                onClick={() => handleNotificationClick(notification.id)}
               >
                 <div className="flex-shrink-0 pt-1">
                     <Ticket className="h-5 w-5 text-muted-foreground" />
