@@ -1,4 +1,3 @@
-
 'use client';
 import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -13,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const statusColors: Record<TicketStatus, string> = {
+  'Unopened': 'bg-blue-500 hover:bg-blue-600',
   'Open': 'bg-green-500 hover:bg-green-600',
   'In Progress': 'bg-yellow-500 hover:bg-yellow-600',
   'Closed': 'bg-red-500 hover:bg-red-600',
@@ -33,9 +33,12 @@ export default function TicketsPage() {
     if (isClient && user?.role === 'Employee') {
       router.push('/tickets/new');
     }
+     if (isClient && !user) {
+      router.push('/role-selection');
+    }
   }, [user, router, isClient]);
 
-  if (!isClient || user?.role === 'Employee') {
+  if (!isClient || user?.role === 'Employee' || !user) {
     return null;
   }
 
@@ -55,6 +58,7 @@ export default function TicketsPage() {
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="All">All Statuses</SelectItem>
+                <SelectItem value="Unopened">Unopened</SelectItem>
                 <SelectItem value="Open">Open</SelectItem>
                 <SelectItem value="In Progress">In Progress</SelectItem>
                 <SelectItem value="Closed">Closed</SelectItem>

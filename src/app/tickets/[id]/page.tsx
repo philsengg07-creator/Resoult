@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState } from 'react';
 
 const statusColors: Record<TicketStatus, string> = {
+  'Unopened': 'bg-blue-500 hover:bg-blue-600',
   'Open': 'bg-green-500 hover:bg-green-600',
   'In Progress': 'bg-yellow-500 hover:bg-yellow-600',
   'Closed': 'bg-red-500 hover:bg-red-600',
@@ -30,12 +31,25 @@ export default function TicketDetailsPage() {
   }, []);
 
   useEffect(() => {
+    if (isClient && user?.role === 'Admin' && id) {
+      const currentTicket = tickets.find(t => t.id === id);
+      if(currentTicket && currentTicket.status === 'Unopened') {
+         setTickets(tickets.map(t => t.id === id ? { ...t, status: 'Open' } : t));
+      }
+    }
+  }, [isClient, user, id, tickets, setTickets]);
+
+
+  useEffect(() => {
     if (isClient && user?.role === 'Employee') {
       router.push('/tickets/new');
     }
+    if (isClient && !user) {
+      router.push('/role-selection');
+    }
   }, [user, router, isClient]);
   
-  if (!isClient || user?.role === 'Employee') {
+  if (!isClient || user?.role === 'Employee' || !user) {
     return null;
   }
 
@@ -51,6 +65,7 @@ export default function TicketDetailsPage() {
   }
 
   const handleStatusChange = (newStatus: TicketStatus) => {
+    if (newStatus === 'Unopened') return;
     setTickets(tickets.map(t => t.id === id ? { ...t, status: newStatus } : t));
   };
 

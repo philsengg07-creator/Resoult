@@ -1,5 +1,5 @@
 
-export type TicketStatus = 'Open' | 'In Progress' | 'Closed';
+export type TicketStatus = 'Unopened' | 'Open' | 'In Progress' | 'Closed';
 
 export interface Ticket {
   id: string;
@@ -19,8 +19,4 @@ export interface User {
 
 export interface AppNotification {
     id: string;
-    ticketId: string;
-    message: string;
-    createdAt: string;
-    read: boolean;
-}
+    ticketId: string

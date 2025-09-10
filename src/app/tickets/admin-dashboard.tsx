@@ -1,3 +1,4 @@
+
 'use client';
 import { useMemo } from 'react';
 import { type Ticket } from '@/types';
@@ -13,6 +14,10 @@ interface AdminDashboardProps {
 const chartConfig = {
   tickets: {
     label: 'Tickets',
+  },
+  Unopened: {
+    label: 'Unopened',
+    color: 'hsl(var(--chart-5))',
   },
   Open: {
     label: 'Open',
@@ -31,19 +36,24 @@ const chartConfig = {
 export function AdminDashboard({ tickets }: AdminDashboardProps) {
   const ticketCounts = useMemo(() => {
     const counts = {
+      Unopened: 0,
       Open: 0,
       'In Progress': 0,
       Closed: 0,
     };
     tickets.forEach(ticket => {
-      counts[ticket.status]++;
+      if (counts.hasOwnProperty(ticket.status)) {
+        counts[ticket.status]++;
+      }
     });
     return counts;
   }, [tickets]);
 
   const totalTickets = tickets.length;
+  const activeTickets = ticketCounts.Unopened + ticketCounts.Open + ticketCounts['In Progress'];
 
   const chartData = [
+    { status: 'Unopened', tickets: ticketCounts.Unopened, fill: 'var(--color-Unopened)' },
     { status: 'Open', tickets: ticketCounts.Open, fill: 'var(--color-Open)' },
     { status: 'In Progress', tickets: ticketCounts['In Progress'], fill: 'var(--color-In Progress)' },
     { status: 'Closed', tickets: ticketCounts.Closed, fill: 'var(--color-Closed)' },
@@ -62,28 +72,41 @@ export function AdminDashboard({ tickets }: AdminDashboardProps) {
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+          <CardTitle className="text-sm font-medium">Active Tickets</CardTitle>
            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-4 w-4 text-muted-foreground"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{ticketCounts.Open}</div>
+          <div className="text-2xl font-bold">{activeTickets}</div>
         </CardContent>
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Tickets by Status</CardTitle>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-4 w-4 text-muted-foreground"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3a2 2 0 0 0-1.7-.9H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16Z" /></svg>
+          <CardTitle className="text-sm font-medium">Closed Tickets</CardTitle>
+           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-4 w-4 text-muted-foreground"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" /></svg>
         </CardHeader>
-        <CardContent className='pb-0'>
-         <ChartContainer config={chartConfig} className="h-[100px] w-full">
-            <BarChart accessibilityLayer data={chartData} layout="vertical" margin={{ left: 0, top: 0, right: 0, bottom: 0 }}>
-                <XAxis type="number" hide />
-                <YAxis dataKey="status" type="category" tickLine={false} tick={false} axisLine={false} />
-                <Bar dataKey="tickets" layout="vertical" stackId="a" radius={5}>
-                   <LabelList dataKey="tickets" position="insideRight" offset={8} className="fill-white" fontSize={12} />
-                </Bar>
+        <CardContent>
+          <div className="text-2xl font-bold">{ticketCounts.Closed}</div>
+        </CardContent>
+      </Card>
+      <Card className="md:col-span-3">
+        <CardHeader>
+          <CardTitle>Ticket Status Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+            <BarChart accessibilityLayer data={chartData}>
+               <CartesianGrid vertical={false} />
+              <XAxis dataKey="status" tickLine={false} tickMargin={10} axisLine={false} />
+              <YAxis />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="dot" />}
+              />
+              <Bar dataKey="tickets" radius={4}>
+                <LabelList position="top" offset={4} className="fill-foreground" fontSize={12} />
+              </Bar>
             </BarChart>
-        </ChartContainer>
+          </ChartContainer>
         </CardContent>
       </Card>
     </div>

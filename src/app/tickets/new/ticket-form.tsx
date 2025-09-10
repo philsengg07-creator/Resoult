@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -87,7 +86,7 @@ export function TicketForm() {
         id: crypto.randomUUID(),
         ...values,
         createdAt: new Date().toISOString(),
-        status: 'Open',
+        status: 'Unopened',
         photo: photoPreview ?? undefined,
         summary,
       };
