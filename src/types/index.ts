@@ -1,3 +1,4 @@
+
 export type TicketStatus = 'Open' | 'In Progress' | 'Closed';
 
 export interface Ticket {
@@ -9,14 +10,6 @@ export interface Ticket {
   createdAt: string;
   status: TicketStatus;
   summary: string;
-}
-
-export interface Bill {
-  id: string;
-  date: string;
-  description: string;
-  file?: string; // base64 data URI
-  createdAt: string;
 }
 
 export interface User {

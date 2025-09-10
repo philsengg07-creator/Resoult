@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -11,7 +12,7 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
-import { FileText, PlusCircle, LayoutDashboard } from 'lucide-react';
+import { PlusCircle, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 
@@ -82,21 +83,6 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-              )}
-
-              {user?.role === 'Admin' && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === '/bills'}
-                    tooltip="Bills"
-                  >
-                    <Link href="/bills">
-                      <FileText />
-                      <span>Bills</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
               )}
             </>
           )}
