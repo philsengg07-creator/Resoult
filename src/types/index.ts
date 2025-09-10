@@ -16,3 +16,11 @@ export interface User {
   name: string;
   role: 'Admin' | 'Employee';
 }
+
+export interface AppNotification {
+    id: string;
+    ticketId: string;
+    message: string;
+    createdAt: string;
+    read: boolean;
+}

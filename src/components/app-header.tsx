@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { NotificationBell } from './notification-bell';
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -43,6 +44,7 @@ export function AppHeader() {
             <span className="text-sm text-muted-foreground hidden sm:inline">
               Welcome, {user.name} ({user.role})
             </span>
+            {user.role === 'Admin' && <NotificationBell />}
             <Button variant="ghost" size="icon" onClick={logout}>
               <LogOut className="h-4 w-4" />
               <span className="sr-only">Log Out</span>

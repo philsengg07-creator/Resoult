@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { type Ticket } from '@/types';
+import { type Ticket, type AppNotification } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -28,6 +28,7 @@ export function TicketForm() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setTickets] = useLocalStorage<Ticket[]>('tickets', []);
+  const [, setNotifications] = useLocalStorage<AppNotification[]>('notifications', []);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,6 +87,16 @@ export function TicketForm() {
       };
 
       setTickets((prev) => [...prev, newTicket]);
+
+      const newNotification: AppNotification = {
+        id: crypto.randomUUID(),
+        ticketId: newTicket.id,
+        message: `New ticket "${newTicket.summary}" from ${newTicket.name}.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+      };
+      setNotifications((prev) => [newNotification, ...prev]);
+
       toast({
         title: 'Ticket Created!',
         description: 'Your support ticket has been submitted.',
