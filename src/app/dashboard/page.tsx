@@ -1,7 +1,7 @@
 
 'use client';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { type Ticket } from '@/types';
+import { type Ticket, type Renewal } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { AdminDashboard } from '../tickets/admin-dashboard';
 
 export default function DashboardPage() {
   const [tickets] = useLocalStorage<Ticket[]>('tickets', []);
+  const [renewals] = useLocalStorage<Renewal[]>('renewals', []);
   const { user } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
@@ -32,7 +33,7 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto space-y-6">
-      <AdminDashboard tickets={tickets} />
+      <AdminDashboard tickets={tickets} renewals={renewals} />
     </div>
   );
 }
