@@ -8,7 +8,7 @@ import { useAuth } from './use-auth';
 
 const RenewalContext = createContext<undefined>(undefined);
 
-const NOTIFICATION_DAYS = [1, 5, 10, 30];
+const NOTIFICATION_DAYS = [0, 1, 5, 10, 30];
 
 export function RenewalProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -26,13 +26,22 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
       const daysLeft = differenceInDays(renewalDate, today);
 
       if (daysLeft >= 0 && NOTIFICATION_DAYS.includes(daysLeft)) {
-        // Check if a notification for this renewal and this specific day has already been created
-        const alreadyNotified = notifications.some(
-          n => n.refId === renewal.id && isSameDay(new Date(n.createdAt), today) && n.message.includes(`${daysLeft} day`)
-        );
+        
+        let alreadyNotified = false;
+        // For the last day, we want to keep reminding, so we don't check if already notified.
+        if (daysLeft > 0) {
+            alreadyNotified = notifications.some(
+              n => n.refId === renewal.id && 
+                   isSameDay(new Date(n.createdAt), today) && 
+                   n.message.includes(`${daysLeft} day`)
+            );
+        }
         
         if (!alreadyNotified) {
-            const message = `The warranty for "${renewal.itemName}" is expiring in ${daysLeft} day(s).`;
+            const message = daysLeft === 0 
+                ? `The warranty for "${renewal.itemName}" is expiring today.`
+                : `The warranty for "${renewal.itemName}" is expiring in ${daysLeft} day(s).`;
+
             const newNotif: AppNotification = {
               id: crypto.randomUUID(),
               refId: renewal.id,
