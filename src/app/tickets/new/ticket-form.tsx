@@ -74,7 +74,9 @@ export function TicketForm() {
   const showDesktopNotification = (title: string, body: string) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body });
+      return true;
     }
+    return false;
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -104,12 +106,14 @@ export function TicketForm() {
       };
       setNotifications((prev) => [newNotification, ...prev]);
 
-      showDesktopNotification('New Ticket Created', `Ticket: ${newTicket.summary}`);
+      const wasDesktopNotified = showDesktopNotification('New Ticket Created', `Ticket: ${newTicket.summary}`);
 
-      toast({
-        title: 'Ticket Created!',
-        description: 'Your support ticket has been submitted.',
-      });
+      if (!wasDesktopNotified) {
+         toast({
+            title: 'Ticket Created!',
+            description: 'Your support ticket has been submitted.',
+        });
+      }
       
       form.reset({ name: user?.name ?? '', problemDescription: '', additionalInfo: '' });
       removePhoto();

@@ -18,9 +18,6 @@ export function NotificationBell() {
 
   useEffect(() => {
     setIsClient(true);
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
   }, []);
 
   const unreadCount = isClient ? notifications.filter((n) => !n.read).length : 0;
