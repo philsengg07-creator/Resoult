@@ -1,4 +1,6 @@
 
+import { z } from 'zod';
+
 export type TicketStatus = 'Unopened' | 'Open' | 'In Progress' | 'Closed';
 
 export interface Ticket {
@@ -34,3 +36,11 @@ export interface AppNotification {
     createdAt: string;
     read: boolean;
 }
+
+export const SendRenewalEmailInputSchema = z.object({
+  adminEmail: z.string().email().describe('The email address of the administrator.'),
+  itemName: z.string().describe('The name of the item nearing its renewal date.'),
+  renewalDate: z.string().describe('The renewal date of the item.'),
+  daysLeft: z.number().int().describe('The number of days left until renewal.'),
+});
+export type SendRenewalEmailInput = z.infer<typeof SendRenewalEmailInputSchema>;

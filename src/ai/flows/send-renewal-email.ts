@@ -4,19 +4,11 @@
  * @fileOverview A flow for sending renewal email notifications.
  *
  * - sendRenewalEmail - A function that triggers the email sending process.
- * - SendRenewalEmailInput - The input type for the sendRenewalEmail function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-
-export const SendRenewalEmailInputSchema = z.object({
-  adminEmail: z.string().email().describe('The email address of the administrator.'),
-  itemName: z.string().describe('The name of the item nearing its renewal date.'),
-  renewalDate: z.string().describe('The renewal date of the item.'),
-  daysLeft: z.number().int().describe('The number of days left until renewal.'),
-});
-export type SendRenewalEmailInput = z.infer<typeof SendRenewalEmailInputSchema>;
+import { SendRenewalEmailInput, SendRenewalEmailInputSchema } from '@/types';
 
 export async function sendRenewalEmail(input: SendRenewalEmailInput): Promise<void> {
   await sendRenewalEmailFlow(input);
