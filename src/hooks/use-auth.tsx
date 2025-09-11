@@ -21,12 +21,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  useEffect(() => {
     const isAuthPage = pathname === '/login' || pathname === '/role-selection';
     if (!user && !isAuthPage) {
       router.push('/role-selection');
