@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -17,7 +18,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
     }
   }, [initialValue, key]);
 
-  const [storedValue, setStoredValue] = useState<T>(readValue);
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
 
   useEffect(() => {
     setStoredValue(readValue());
