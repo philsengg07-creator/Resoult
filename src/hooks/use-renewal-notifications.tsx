@@ -28,14 +28,15 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
 
       if (daysLeft >= 0 && NOTIFICATION_DAYS.includes(daysLeft)) {
         
-        let alreadyNotified = false;
+        let alreadyNotified = notifications.some(
+          n => n.refId === renewal.id && 
+               isSameDay(new Date(n.createdAt), today) && 
+               n.message.includes(`${daysLeft} day`)
+        );
+        
         // For the last day, we want to keep reminding, so we don't check if already notified.
-        if (daysLeft > 0) {
-            alreadyNotified = notifications.some(
-              n => n.refId === renewal.id && 
-                   isSameDay(new Date(n.createdAt), today) && 
-                   n.message.includes(`${daysLeft} day`)
-            );
+        if (daysLeft === 0) {
+            alreadyNotified = false;
         }
         
         if (!alreadyNotified) {
@@ -74,7 +75,8 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
       setNotifications(prev => [...newNotifications, ...prev]);
     }
     
-  }, [renewals, user, setNotifications, notifications]); // Rerun when renewals or user change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renewals, user, setNotifications]); 
 
   return <RenewalContext.Provider value={undefined}>{children}</RenewalContext.Provider>;
 }
