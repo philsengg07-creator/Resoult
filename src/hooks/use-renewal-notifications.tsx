@@ -14,13 +14,12 @@ const NOTIFICATION_DAYS = [0, 1, 5, 10, 30];
 export function RenewalProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [renewals] = useLocalStorage<Renewal[]>('renewals', []);
-  const [notifications, setNotifications] = useLocalStorage<AppNotification[]>('notifications', []);
+  const [, setNotifications] = useLocalStorage<AppNotification[]>('notifications', []);
 
   useEffect(() => {
     if (user?.role !== 'Admin' || typeof window === 'undefined') return;
 
     const today = startOfDay(new Date());
-    const newNotifications: AppNotification[] = [];
 
     renewals.forEach(renewal => {
       const renewalDate = startOfDay(new Date(renewal.renewalDate));
@@ -28,52 +27,50 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
 
       if (daysLeft >= 0 && NOTIFICATION_DAYS.includes(daysLeft)) {
         
-        let alreadyNotified = notifications.some(
-          n => n.refId === renewal.id && 
-               isSameDay(new Date(n.createdAt), today) && 
-               n.message.includes(`${daysLeft} day`)
-        );
-        
-        // For the last day, we want to keep reminding, so we don't check if already notified.
-        if (daysLeft === 0) {
-            alreadyNotified = false;
-        }
-        
-        if (!alreadyNotified) {
-            const message = daysLeft === 0 
-                ? `The warranty for "${renewal.itemName}" is expiring today.`
-                : `The warranty for "${renewal.itemName}" is expiring in ${daysLeft} day(s).`;
+        setNotifications(prevNotifications => {
+            let alreadyNotified = prevNotifications.some(
+              n => n.refId === renewal.id && 
+                   isSameDay(new Date(n.createdAt), today) && 
+                   n.message.includes(`${daysLeft} day`)
+            );
 
-            const newNotif: AppNotification = {
-              id: crypto.randomUUID(),
-              refId: renewal.id,
-              type: 'renewal',
-              message,
-              createdAt: new Date().toISOString(),
-              read: false,
-            };
-            newNotifications.push(newNotif);
-
-            if (user.email) {
-                sendRenewalEmail({
-                    adminEmail: user.email,
-                    itemName: renewal.itemName,
-                    renewalDate: format(new Date(renewal.renewalDate), 'PPP'),
-                    daysLeft: daysLeft,
-                }).catch(console.error);
+            if (daysLeft === 0) {
+                alreadyNotified = false;
             }
+            
+            if (!alreadyNotified) {
+                const message = daysLeft === 0 
+                    ? `The warranty for "${renewal.itemName}" is expiring today.`
+                    : `The warranty for "${renewal.itemName}" is expiring in ${daysLeft} day(s).`;
 
-            // Trigger desktop notification
-            if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('Renewal Reminder', { body: message });
+                const newNotif: AppNotification = {
+                  id: crypto.randomUUID(),
+                  refId: renewal.id,
+                  type: 'renewal',
+                  message,
+                  createdAt: new Date().toISOString(),
+                  read: false,
+                };
+
+                if (user.email) {
+                    sendRenewalEmail({
+                        adminEmail: user.email,
+                        itemName: renewal.itemName,
+                        renewalDate: format(new Date(renewal.renewalDate), 'PPP'),
+                        daysLeft: daysLeft,
+                    }).catch(console.error);
+                }
+
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Renewal Reminder', { body: message });
+                }
+                return [newNotif, ...prevNotifications];
             }
-        }
+            
+            return prevNotifications;
+        });
       }
     });
-
-    if (newNotifications.length > 0) {
-      setNotifications(prev => [...newNotifications, ...prev]);
-    }
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renewals, user, setNotifications]); 
