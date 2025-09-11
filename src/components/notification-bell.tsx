@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { type AppNotification } from '@/types';
@@ -30,9 +30,13 @@ export function NotificationBell() {
       notifications.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
     );
   };
-
-  const sortedNotifications = isClient ? [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
-  const unreadNotifications = sortedNotifications.filter(n => !n.read);
+  
+  const unreadNotifications = useMemo(() => {
+      if (!isClient) return [];
+      return [...notifications]
+        .filter(n => !n.read)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [notifications, isClient]);
   
   if (!isClient) return null;
 
