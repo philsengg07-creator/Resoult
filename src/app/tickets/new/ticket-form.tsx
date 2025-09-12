@@ -91,9 +91,12 @@ export function TicketForm() {
         ...values,
         createdAt: new Date().toISOString(),
         status: 'Unopened',
-        photo: photoPreview ?? undefined,
         summary,
       };
+
+      if (photoPreview) {
+        newTicket.photo = photoPreview;
+      }
 
       const ticketId = addTicket(newTicket);
 
@@ -130,9 +133,10 @@ export function TicketForm() {
     }
   }
 
-  if (!isClient || authLoading || (user && user.role !== 'Employee')) {
+  if (!isClient || authLoading || (isClient && !authLoading && user?.role !== 'Employee')) {
     return null; // Or a loading skeleton
   }
+
 
   return (
     <Card>
@@ -220,3 +224,5 @@ export function TicketForm() {
     </Card>
   );
 }
+
+    
