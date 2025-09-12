@@ -11,8 +11,9 @@ import { z } from 'genkit';
 import { PushNotificationInput, PushNotificationInputSchema } from '@/types';
 import * as admin from 'firebase-admin';
 
-// Initialize Firebase Admin SDK
-// You must set the GOOGLE_APPLICATION_CREDENTIALS environment variable
+// Initialize Firebase Admin SDK if it hasn't been already.
+// This is crucial for server-side operations.
+// You must set the GOOGLE_APPLICATION_CREDENTIALS environment variable in your deployment
 // to a service account key with permissions to send FCM messages.
 if (!admin.apps.length) {
   admin.initializeApp({

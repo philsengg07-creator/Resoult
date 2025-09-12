@@ -33,7 +33,6 @@ export function TicketForm() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const { data: adminUsers } = useDatabaseList<User>('users'); // A way to get admin ID
 
   useEffect(() => {
     setIsClient(true);
@@ -120,9 +119,10 @@ export function TicketForm() {
       // This is a simplification. In a real app, you'd have a more robust way
       // to get all admin user IDs. Here we just trigger for the current admin if one is logged in
       // on another device, or we find one. This part is tricky without a proper user list.
-      // For this app, we'll try to find an admin ID to send to.
+      // For this app, we'll assume there is one admin user and their UID is what we need.
       // A robust solution would be a backend function that fans out to all admins.
-      const adminId = firebaseUser?.uid; // This is only valid if an admin is logged in somewhere
+      // For now we will hardcode the admin user ID. 
+      const adminId = 'H2850vQO5ZU1C02x4Hq42oXv5g12'; 
       if (adminId) {
           sendPushNotification({
               userId: adminId,
@@ -132,7 +132,6 @@ export function TicketForm() {
       } else {
         console.log("Could not determine admin to send push notification to.");
       }
-
 
       toast({
           title: 'Ticket Created!',

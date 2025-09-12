@@ -60,27 +60,5 @@ export const usePushNotifications = () => {
     // Let's request permission right away if the user is an admin
     requestPermission();
 
-    // Optional: Handle token refresh
-    const unsubscribe = messaging.onTokenRefresh(async () => {
-        try {
-            const refreshedToken = await getToken(messaging, {
-                vapidKey: 'BDS_xUP1CjIaC7T2fEODg5z_jLhUeYwXn-8L-KjJt6m2b-rV1q_X8sUjW0o_w-A5Q1Z1_Y4B6H_p3c',
-            });
-            if (refreshedToken) {
-                const tokenRef = ref(database, `device_tokens/${firebaseUser.uid}/${refreshedToken}`);
-                await set(tokenRef, true);
-                console.log('FCM token refreshed and saved.');
-            }
-        } catch (error) {
-            console.error('Unable to retrieve refreshed token ', error);
-        }
-    });
-
-    return () => {
-        // This is not a standard unsubscribe function, but it's how you remove the listener in Firebase v9
-        // messaging.onTokenRefresh returns a function to unsubscribe, but the types might not show it.
-        // We can leave it empty if needed, as it might not be critical for this app's lifecycle.
-    };
-
   }, [user, firebaseUser, toast]);
 };
