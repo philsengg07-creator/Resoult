@@ -19,13 +19,23 @@ export const usePushNotifications = () => {
 
     const requestPermission = async () => {
       try {
+        if (!process.env.NEXT_PUBLIC_VAPID_KEY) {
+            console.error('VAPID key is not set in environment variables.');
+            toast({
+                variant: 'destructive',
+                title: 'Push Notification Error',
+                description: 'Application is not configured for push notifications.',
+            });
+            return;
+        }
+
         // 1. Request permission
         const permission = await Notification.requestPermission();
 
         if (permission === 'granted') {
           // 2. Get the token
           const currentToken = await getToken(messaging, {
-            vapidKey: 'BDS_xUP1CjIaC7T2fEODg5z_jLhUeYwXn-8L-KjJt6m2b-rV1q_X8sUjW0o_w-A5Q1Z1_Y4B6H_p3c', // Replace with your VAPID key
+            vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY,
           });
 
           if (currentToken) {
