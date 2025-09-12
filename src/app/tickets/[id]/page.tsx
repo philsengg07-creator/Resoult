@@ -52,117 +52,108 @@ export default function TicketDetailsPage() {
     }
   }, [user, router, isClient, authLoading]);
   
-  const isLoading = !isClient || authLoading || ticketsLoading;
-
-  if (isLoading) {
-    return (
-        <div className="container mx-auto max-w-4xl space-y-6">
-             <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-            </Card>
-            <div className="grid md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-6">
-                    <Skeleton className="h-48 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                </div>
-                <div className="space-y-6">
-                    <Skeleton className="h-64 w-full" />
-                </div>
-            </div>
-        </div>
-    );
-  }
-  
-  if (user?.role === 'Employee' || !user) {
-    return null;
-  }
-
-  if (!ticket) {
-    return (
-      <div className="container mx-auto max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ticket not found</CardTitle>
-            <CardDescription>The ticket you are looking for does not exist.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
   const handleStatusChange = (newStatus: TicketStatus) => {
-    if (newStatus === 'Unopened') return;
+    if (!ticket || newStatus === 'Unopened') return;
     updateTicket(ticket.id, { ...ticket, status: newStatus });
   };
+  
+  const isLoading = !isClient || authLoading || ticketsLoading;
 
   return (
     <div className="container mx-auto max-w-4xl space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <CardTitle className="text-2xl">{ticket.summary}</CardTitle>
-              <CardDescription>
-                Submitted by {ticket.name} on {format(new Date(ticket.createdAt), 'PPP')}
-              </CardDescription>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <Badge variant="secondary" className={`whitespace-nowrap ${statusColors[ticket.status]}`}>{ticket.status}</Badge>
-              <Select onValueChange={handleStatusChange} value={ticket.status}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Change status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Open">Open</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      {isLoading ? (
+        <>
           <Card>
             <CardHeader>
-              <CardTitle>Problem Details</CardTitle>
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
             </CardHeader>
-            <CardContent>
-              <p>{ticket.problemDescription}</p>
-            </CardContent>
           </Card>
-
-          {ticket.additionalInfo && (
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-6">
+              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+            <div className="space-y-6">
+              <Skeleton className="h-64 w-full" />
+            </div>
+          </div>
+        </>
+      ) : user?.role === 'Admin' ? (
+        !ticket ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Ticket not found</CardTitle>
+              <CardDescription>The ticket you are looking for does not exist.</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <>
             <Card>
               <CardHeader>
-                <CardTitle>Additional Information</CardTitle>
-              </Header>
-              <CardContent>
-                <p>{ticket.additionalInfo}</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-        <div className="space-y-6">
-          {ticket.photo && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Attached Photo</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative w-full aspect-square rounded-md overflow-hidden border">
-                  <Image src={ticket.photo} alt="User submitted photo" layout="fill" objectFit="contain" data-ai-hint="issue screenshot" />
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <CardTitle className="text-2xl">{ticket.summary}</CardTitle>
+                    <CardDescription>
+                      Submitted by {ticket.name} on {format(new Date(ticket.createdAt), 'PPP')}
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge variant="secondary" className={`whitespace-nowrap ${statusColors[ticket.status]}`}>{ticket.status}</Badge>
+                    <Select onValueChange={handleStatusChange} value={ticket.status}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Change status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Open">Open</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </CardContent>
+              </CardHeader>
             </Card>
-          )}
-        </div>
-      </div>
+            <div className="grid md:grid-cols-3 gap-6 p-6 pt-0">
+              <div className="md:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Problem Details</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p>{ticket.problemDescription}</p>
+                  </CardContent>
+                </Card>
+
+                {ticket.additionalInfo && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Additional Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p>{ticket.additionalInfo}</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+              <div className="space-y-6">
+                {ticket.photo && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Attached Photo</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="relative w-full aspect-square rounded-md overflow-hidden border">
+                        <Image src={ticket.photo} alt="User submitted photo" layout="fill" objectFit="contain" data-ai-hint="issue screenshot" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </>
+        )
+      ) : null}
     </div>
   );
 }

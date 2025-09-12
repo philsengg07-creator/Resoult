@@ -31,31 +31,24 @@ export default function DashboardPage() {
   }, [user, router, isClient, authLoading]);
 
   const isLoading = !isClient || authLoading || ticketsLoading || renewalsLoading;
-  
-  if (isLoading) {
-    return (
-        <div className="grid gap-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Skeleton className="h-24" />
-                <Skeleton className="h-24" />
-                <Skeleton className="h-24" />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Skeleton className="lg:col-span-4 h-80" />
-                <Skeleton className="lg:col-span-3 h-80" />
-            </div>
-        </div>
-    );
-  }
-
-  if (user?.role === 'Employee') {
-    return null;
-  }
-
 
   return (
     <div className="container mx-auto space-y-6">
-      <AdminDashboard tickets={tickets} renewals={renewals} />
+      {isLoading ? (
+        <div className="grid gap-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <Skeleton className="lg:col-span-4 h-80" />
+            <Skeleton className="lg:col-span-3 h-80" />
+          </div>
+        </div>
+      ) : user?.role === 'Admin' ? (
+        <AdminDashboard tickets={tickets} renewals={renewals} />
+      ) : null}
     </div>
   );
 }
