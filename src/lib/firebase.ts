@@ -2,6 +2,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import { getMessaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   projectId: 'studio-288338678-646a3',
@@ -24,4 +25,8 @@ if (!getApps().length) {
 const auth = getAuth(app);
 const database = getDatabase(app);
 
-export { app, auth, database };
+// Get messaging instance
+const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+
+
+export { app, auth, database, messaging };

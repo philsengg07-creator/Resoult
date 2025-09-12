@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 export type TicketStatus = 'Unopened' | 'Open' | 'In Progress' | 'Closed';
@@ -46,3 +45,11 @@ export const SendRenewalEmailInputSchema = z.object({
   daysLeft: z.number().int().describe('The number of days left until renewal.'),
 });
 export type SendRenewalEmailInput = z.infer<typeof SendRenewalEmailInputSchema>;
+
+
+export const PushNotificationInputSchema = z.object({
+  title: z.string().describe('The title of the push notification.'),
+  body: z.string().describe('The body content of the push notification.'),
+  userId: z.string().describe("The UID of the user to send the notification to."),
+});
+export type PushNotificationInput = z.infer<typeof PushNotificationInputSchema>;

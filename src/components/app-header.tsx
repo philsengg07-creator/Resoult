@@ -8,11 +8,14 @@ import { LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { NotificationBell } from './notification-bell';
 import { Skeleton } from './ui/skeleton';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 
 export function AppHeader() {
   const pathname = usePathname();
   const { user, logout, loading } = useAuth();
   const [isClient, setIsClient] = useState(false);
+  // Initialize push notifications hook
+  usePushNotifications();
 
   useEffect(() => {
     setIsClient(true);

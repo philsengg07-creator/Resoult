@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
+import { sendPushNotification } from '@/ai/flows/send-push-notification';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -25,13 +26,14 @@ const formSchema = z.object({
 
 export function TicketForm() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, firebaseUser } = useAuth();
   const { toast } = useToast();
   const { add: addTicket } = useDatabaseList<Ticket>('tickets');
   const { add: addNotification } = useDatabaseList<AppNotification>('notifications');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const { data: adminUsers } = useDatabaseList<User>('users'); // A way to get admin ID
 
   useEffect(() => {
     setIsClient(true);
@@ -114,6 +116,23 @@ export function TicketForm() {
         read: false,
       };
       addNotification(newNotification);
+
+      // This is a simplification. In a real app, you'd have a more robust way
+      // to get all admin user IDs. Here we just trigger for the current admin if one is logged in
+      // on another device, or we find one. This part is tricky without a proper user list.
+      // For this app, we'll try to find an admin ID to send to.
+      // A robust solution would be a backend function that fans out to all admins.
+      const adminId = firebaseUser?.uid; // This is only valid if an admin is logged in somewhere
+      if (adminId) {
+          sendPushNotification({
+              userId: adminId,
+              title: 'New Ticket Submitted!',
+              body: `Ticket: ${summary}`
+          }).catch(console.error);
+      } else {
+        console.log("Could not determine admin to send push notification to.");
+      }
+
 
       toast({
           title: 'Ticket Created!',

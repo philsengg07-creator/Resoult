@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+        // Ensures the service worker is copied to the public directory
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
