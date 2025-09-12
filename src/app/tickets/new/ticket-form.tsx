@@ -86,14 +86,6 @@ export function TicketForm() {
     const fileInput = document.getElementById('photo-upload') as HTMLInputElement;
     if(fileInput) fileInput.value = '';
   };
-  
-  const showDesktopNotification = (title: string, body: string) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body });
-      return true;
-    }
-    return false;
-  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -123,14 +115,10 @@ export function TicketForm() {
       };
       addNotification(newNotification);
 
-      const wasDesktopNotified = showDesktopNotification('New Ticket Created', `Ticket: ${summary}`);
-
-      if (!wasDesktopNotified) {
-         toast({
-            title: 'Ticket Created!',
-            description: 'Your support ticket has been submitted.',
-        });
-      }
+      toast({
+          title: 'Ticket Created!',
+          description: 'Your support ticket has been submitted.',
+      });
       
       form.reset({ name: user?.name ?? '', problemDescription: '', additionalInfo: '' });
       removePhoto();
