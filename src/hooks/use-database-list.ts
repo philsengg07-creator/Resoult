@@ -18,18 +18,18 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     if (authLoading) return;
     
     setLoading(true);
+    setData([]); // Reset data on path/user change
     let unsubscribes: (() => void)[] = [];
 
-    const handleData = (snapshot: any, currentData: T[]): T[] => {
+    const handleData = (snapshot: any, pathPrefix: string) => {
         const val = snapshot.val();
-        const list: T[] = val ? Object.keys(val).map(key => ({ ...val[key], id: key })) : [];
+        const list: T[] = val ? Object.keys(val).map(key => ({ ...val[key], id: key, __pathPrefix: pathPrefix } as any)) : [];
         
-        // Simple merge: remove old items from this path and add new ones
-        const pathPrefix = snapshot.ref.toString().includes(adminId ?? '___') ? adminId : employeeId;
-        const otherData = currentData.filter(item => !(item as any).__pathPrefix || (item as any).__pathPrefix !== pathPrefix);
-        const listWithPrefix = list.map(item => ({...item, __pathPrefix: pathPrefix }));
-
-        return [...otherData, ...listWithPrefix];
+        setData(currentData => {
+            // Remove old items from this path and add new ones
+            const otherData = currentData.filter(item => (item as any).__pathPrefix !== pathPrefix);
+            return [...otherData, ...list];
+        });
     };
 
     if (isAdmin && adminId) {
@@ -41,12 +41,12 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
       const employeeRef = ref(database, employeePath);
 
       const onAdminValue = onValue(adminRef, (snapshot) => {
-        setData(current => handleData(snapshot, current));
-        setLoading(false); // Consider loading done after first data received
+        handleData(snapshot, adminId);
+        setLoading(false); 
       }, () => setLoading(false));
 
       const onEmployeeValue = onValue(employeeRef, (snapshot) => {
-        setData(current => handleData(snapshot, current));
+        handleData(snapshot, employeeId);
         setLoading(false);
       }, () => setLoading(false));
 
@@ -69,7 +69,7 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     }
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [path, authLoading, isAdmin, adminId]);
+  }, [path, authLoading, isAdmin, adminId, user]);
 
   const add = (item: Omit<T, 'id'>): string => {
     if (authLoading) throw new Error('Auth state still loading');
@@ -86,11 +86,25 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
   };
 
   const update = (id: string, item: Partial<T>) => {
-    if (authLoading || !user || !adminId) throw new Error('User not authenticated or still loading');
+    if (authLoading || !user) throw new Error('User not authenticated or still loading');
     
-    // Determine which path the item to be updated belongs to
     const originalItem = data.find(d => d.id === id);
-    const itemPathId = (originalItem as any)?.__pathPrefix === employeeId ? employeeId : adminId;
+    if (!originalItem) throw new Error(`Item with id ${id} not found.`);
+
+    // Admins can update any item, so we need to know its origin path
+    const itemPathId = (originalItem as any)?.__pathPrefix;
+    if (!itemPathId) {
+        // Fallback for employee view or if prefix is missing
+        const fallbackId = isAdmin ? adminId : employeeId;
+        if(!fallbackId) throw new Error('Cannot determine item path');
+        
+        const itemRef = ref(database, `data/${fallbackId}/${path}/${id}`);
+        const { id: _, ...rest } = item as any;
+        const currentItem = data.find(d => d.id === id);
+        set(itemRef, { ...currentItem, ...rest });
+        return;
+    };
+
 
     const itemRef = ref(database, `data/${itemPathId}/${path}/${id}`);
     const { id: _, ...rest } = item as any;
@@ -99,14 +113,24 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
   };
   
   const removeById = (id: string) => {
-    if (authLoading || !user || !adminId) throw new Error('User not authenticated or still loading');
+    if (authLoading || !user) throw new Error('User not authenticated or still loading');
     
     const originalItem = data.find(d => d.id === id);
-    const itemPathId = (originalItem as any)?.__pathPrefix === employeeId ? employeeId : adminId;
+    if (!originalItem) throw new Error(`Item with id ${id} not found.`);
+    
+    const itemPathId = (originalItem as any)?.__pathPrefix;
+     if (!itemPathId) {
+        // Fallback for employee view or if prefix is missing
+        const fallbackId = isAdmin ? adminId : employeeId;
+        if(!fallbackId) throw new Error('Cannot determine item path');
+        const itemRef = ref(database, `data/${fallbackId}/${path}/${id}`);
+        remove(itemRef);
+        return;
+    };
     
     const itemRef = ref(database, `data/${itemPathId}/${path}/${id}`);
     remove(itemRef);
   };
 
-  return { data, loading: loading, add, update, removeById };
+  return { data, loading, add, update, removeById };
 }
