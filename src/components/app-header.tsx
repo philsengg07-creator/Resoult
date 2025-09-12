@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { NotificationBell } from './notification-bell';
 import { Skeleton } from './ui/skeleton';
@@ -13,9 +13,8 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 export function AppHeader() {
   const pathname = usePathname();
   const { user, logout, loading } = useAuth();
+  const { requestPermission, permissionStatus } = usePushNotifications();
   const [isClient, setIsClient] = useState(false);
-  // Initialize push notifications hook
-  usePushNotifications();
 
   useEffect(() => {
     setIsClient(true);
@@ -57,6 +56,12 @@ export function AppHeader() {
             <span className="text-sm text-muted-foreground hidden sm:inline">
               Welcome, {user.name} ({user.role})
             </span>
+             {user.role === 'Admin' && permissionStatus !== 'granted' && (
+              <Button onClick={requestPermission} size="sm" variant="outline">
+                <Bell className="mr-2 h-4 w-4" />
+                Enable Notifications
+              </Button>
+            )}
             {user.role === 'Admin' && <NotificationBell />}
             <Button variant="ghost" size="icon" onClick={logout}>
               <LogOut className="h-4 w-4" />
