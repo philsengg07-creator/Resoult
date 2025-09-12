@@ -29,22 +29,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (currentFirebaseUser) {
         setFirebaseUser(currentFirebaseUser);
 
-        // Check if user object exists in localStorage to get role and name
         const storedUserJSON = localStorage.getItem('user');
         const storedUser = storedUserJSON ? JSON.parse(storedUserJSON) : null;
         
         if (currentFirebaseUser.isAnonymous) {
-            // Anonymous user is always an Employee
             setUser({ name: storedUser?.name || 'Employee', role: 'Employee' });
         } else {
-            // This is a full user (Admin)
-            if (storedUser?.role === 'Admin') {
-                setUser(storedUser);
-            } else {
-                 const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
-                 const email = currentFirebaseUser.email || undefined;
-                 setUser({ name, email, role: 'Admin' });
-            }
+            const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
+            const email = currentFirebaseUser.email || undefined;
+            const adminUser = { name, email, role: 'Admin' as const };
+            setUser(adminUser);
+            localStorage.setItem('user', JSON.stringify(adminUser));
         }
       } else {
         setUser(null);
@@ -60,10 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     const isAuthPage = pathname === '/login' || pathname === '/role-selection';
-    if (!user && !isAuthPage) {
-      router.push('/role-selection');
-    } else if (user && isAuthPage) {
-      router.push(user.role === 'Admin' ? '/dashboard' : '/tickets/new');
+    
+    if (!user) {
+      if (!isAuthPage) {
+        router.push('/role-selection');
+      }
+    } else {
+      if (isAuthPage) {
+        router.push(user.role === 'Admin' ? '/dashboard' : '/tickets/new');
+      }
     }
   }, [user, pathname, router, loading]);
   
@@ -73,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-    router.push(userData.role === 'Admin' ? '/dashboard' : '/tickets/new');
-  }, [router]);
+    // Redirection is now handled by the useEffect above
+  }, []);
 
   const logout = useCallback(async () => {
     await signOut(auth);
