@@ -5,6 +5,8 @@ import { database } from '@/lib/firebase';
 import { ref, onValue, set } from 'firebase/database';
 import { useAuth } from './use-auth';
 
+// NOTE: This hook assumes Admins only write to their own object path.
+// It doesn't support reading/merging from the employee path like useDatabaseList.
 export function useDatabaseObject<T>(path: string, initialValue: T): [T, (value: T) => void, boolean] {
   const { user, firebaseUser, loading: authLoading } = useAuth();
   const [data, setData] = useState<T>(initialValue);
@@ -12,6 +14,8 @@ export function useDatabaseObject<T>(path: string, initialValue: T): [T, (value:
   
   const userId = useMemo(() => {
     if (authLoading) return null;
+    // Admins and Employees both write to their own space for object-like data.
+    // This is different from list data where employees have a shared space.
     return user?.role === 'Admin' ? firebaseUser?.uid : 'employee_shared';
   }, [user, firebaseUser, authLoading]);
 
@@ -20,6 +24,7 @@ export function useDatabaseObject<T>(path: string, initialValue: T): [T, (value:
     if (!userId) {
        if (!authLoading) {
         setLoading(false);
+        setData(initialValue);
        }
       return;
     }
