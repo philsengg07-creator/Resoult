@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { type User } from '@/types';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut, User as FirebaseUser, updateProfile } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User as FirebaseUser, signInAnonymously } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -33,7 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUser = storedUserJSON ? JSON.parse(storedUserJSON) : null;
         
         if (currentFirebaseUser.isAnonymous) {
-            setUser({ name: storedUser?.name || 'Employee', role: 'Employee' });
+            // Ensure we have a name for anonymous users, otherwise, it's an invalid state.
+            if (storedUser?.name) {
+                setUser({ name: storedUser.name, role: 'Employee' });
+            } else {
+                // This case should ideally not happen if login flow is correct.
+                // You might want to handle this by signing out or redirecting.
+                signOut(auth);
+            }
         } else {
             const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
             const email = currentFirebaseUser.email || undefined;
@@ -78,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await signOut(auth);
+    // Clear local storage on logout to ensure clean state
     localStorage.removeItem('user');
     setUser(null);
     setFirebaseUser(null);

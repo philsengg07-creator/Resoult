@@ -28,6 +28,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <meta name="theme-color" content="#3F51B5" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
