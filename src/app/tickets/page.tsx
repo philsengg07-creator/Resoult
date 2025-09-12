@@ -12,6 +12,18 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 const statusColors: Record<TicketStatus, string> = {
   'Unopened': 'bg-blue-500 hover:bg-blue-600',
@@ -21,11 +33,14 @@ const statusColors: Record<TicketStatus, string> = {
 };
 
 export default function TicketsPage() {
-  const { data: tickets, loading: ticketsLoading } = useDatabaseList<Ticket>('tickets');
+  const { data: tickets, loading: ticketsLoading, removeById: deleteTicket } = useDatabaseList<Ticket>('tickets');
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'All'>('All');
+  const [ticketToDelete, setTicketToDelete] = useState<Ticket | null>(null);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -41,6 +56,17 @@ export default function TicketsPage() {
         }
     }
   }, [user, router, isClient, authLoading]);
+
+  const handleDeleteTicket = () => {
+    if (!ticketToDelete) return;
+    deleteTicket(ticketToDelete.id);
+    toast({
+      title: 'Ticket Deleted',
+      description: `The ticket "${ticketToDelete.summary}" has been successfully deleted.`,
+    });
+    setTicketToDelete(null);
+  };
+
 
   const isLoading = !isClient || authLoading || ticketsLoading;
 
@@ -71,6 +97,7 @@ export default function TicketsPage() {
   );
 
   return (
+    <>
     <div className="container mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">All Tickets</h1>
@@ -115,9 +142,12 @@ export default function TicketsPage() {
               <CardContent className="flex-grow">
                 <p className="text-sm text-muted-foreground line-clamp-3">{ticket.problemDescription}</p>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex items-center gap-2">
                 <Button asChild className="w-full" variant="outline">
                   <Link href={`/tickets/${ticket.id}`}>View Details</Link>
+                </Button>
+                <Button variant="outline" size="icon" onClick={(e) => {e.stopPropagation(); setTicketToDelete(ticket)}}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </CardFooter>
             </Card>
@@ -125,5 +155,23 @@ export default function TicketsPage() {
         </div>
       )}
     </div>
+    <AlertDialog open={!!ticketToDelete} onOpenChange={(open) => !open && setTicketToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the ticket
+              "{ticketToDelete?.summary}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTicket} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

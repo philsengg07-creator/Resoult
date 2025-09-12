@@ -11,6 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const statusColors: Record<TicketStatus, string> = {
   'Unopened': 'bg-blue-500 hover:bg-blue-600',
@@ -24,22 +37,28 @@ export default function TicketDetailsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { id } = params;
-  const { data: tickets, update: updateTicket, loading: ticketsLoading } = useDatabaseList<Ticket>('tickets');
-  
+  const {
+    data: tickets,
+    update: updateTicket,
+    removeById: deleteTicket,
+    loading: ticketsLoading,
+  } = useDatabaseList<Ticket>('tickets');
+  const { toast } = useToast();
+
   const ticket = useMemo(() => tickets.find((t) => t.id === id), [tickets, id]);
 
   const [isClient, setIsClient] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
   useEffect(() => {
     if (isClient && user?.role === 'Admin' && ticket?.status === 'Unopened') {
-        updateTicket(ticket.id, { ...ticket, status: 'Open' });
+      updateTicket(ticket.id, { ...ticket, status: 'Open' });
     }
   }, [isClient, user, ticket, updateTicket]);
-
 
   useEffect(() => {
     if (isClient && !authLoading) {
@@ -51,109 +70,151 @@ export default function TicketDetailsPage() {
       }
     }
   }, [user, router, isClient, authLoading]);
-  
+
   const handleStatusChange = (newStatus: TicketStatus) => {
     if (!ticket || newStatus === 'Unopened') return;
     updateTicket(ticket.id, { ...ticket, status: newStatus });
   };
-  
+
+  const handleDeleteTicket = () => {
+    if (!ticket) return;
+    deleteTicket(ticket.id);
+    toast({
+      title: 'Ticket Deleted',
+      description: `The ticket "${ticket.summary}" has been successfully deleted.`,
+    });
+    router.push('/tickets');
+  };
+
   const isLoading = !isClient || authLoading || ticketsLoading;
 
-  return (
-    <div className="container mx-auto max-w-4xl space-y-6">
-      {isLoading ? (
-        <>
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </CardHeader>
-          </Card>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-6">
-              <Skeleton className="h-48 w-full" />
-              <Skeleton className="h-32 w-full" />
-            </div>
-            <div className="space-y-6">
-              <Skeleton className="h-64 w-full" />
-            </div>
+  if (isLoading) {
+    return (
+      <div className="container mx-auto max-w-4xl space-y-6">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </CardHeader>
+        </Card>
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6">
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-32 w-full" />
           </div>
-        </>
-      ) : user?.role === 'Admin' ? (
-        !ticket ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Ticket not found</CardTitle>
-              <CardDescription>The ticket you are looking for does not exist.</CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <>
+          <div className="space-y-6">
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user?.role !== 'Admin') {
+    return null; // Or some other placeholder for non-admins
+  }
+  
+  if (!ticket) {
+      return (
+        <div className="container mx-auto max-w-4xl space-y-6">
+            <Card>
+                <CardHeader>
+                <CardTitle>Ticket not found</CardTitle>
+                <CardDescription>The ticket you are looking for does not exist or has been deleted.</CardDescription>
+                </CardHeader>
+            </Card>
+        </div>
+      )
+  }
+
+  return (
+    <>
+      <div className="container mx-auto max-w-4xl space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-start gap-4">
+              <div>
+                <CardTitle className="text-2xl">{ticket.summary}</CardTitle>
+                <CardDescription>
+                  Submitted by {ticket.name} on {format(new Date(ticket.createdAt), 'PPP')}
+                </CardDescription>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                   <Badge variant="secondary" className={`whitespace-nowrap ${statusColors[ticket.status]}`}>{ticket.status}</Badge>
+                   <Button variant="outline" size="icon" onClick={() => setIsDeleteDialogOpen(true)}>
+                       <Trash2 className="h-4 w-4 text-destructive" />
+                   </Button>
+                </div>
+                <Select onValueChange={handleStatusChange} value={ticket.status}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Change status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Open">Open</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+        <div className="grid md:grid-cols-3 gap-6 p-6 pt-0">
+          <div className="md:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-start gap-4">
-                  <div>
-                    <CardTitle className="text-2xl">{ticket.summary}</CardTitle>
-                    <CardDescription>
-                      Submitted by {ticket.name} on {format(new Date(ticket.createdAt), 'PPP')}
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Badge variant="secondary" className={`whitespace-nowrap ${statusColors[ticket.status]}`}>{ticket.status}</Badge>
-                    <Select onValueChange={handleStatusChange} value={ticket.status}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Change status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Open">Open</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <CardTitle>Problem Details</CardTitle>
               </CardHeader>
+              <CardContent>
+                <p>{ticket.problemDescription}</p>
+              </CardContent>
             </Card>
-            <div className="grid md:grid-cols-3 gap-6 p-6 pt-0">
-              <div className="md:col-span-2 space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Problem Details</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p>{ticket.problemDescription}</p>
-                  </CardContent>
-                </Card>
 
-                {ticket.additionalInfo && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Additional Information</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p>{ticket.additionalInfo}</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-              <div className="space-y-6">
-                {ticket.photo && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Attached Photo</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="relative w-full aspect-square rounded-md overflow-hidden border">
-                        <Image src={ticket.photo} alt="User submitted photo" layout="fill" objectFit="contain" data-ai-hint="issue screenshot" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </div>
-          </>
-        )
-      ) : null}
-    </div>
+            {ticket.additionalInfo && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Additional Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>{ticket.additionalInfo}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+          <div className="space-y-6">
+            {ticket.photo && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Attached Photo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative w-full aspect-square rounded-md overflow-hidden border">
+                    <Image src={ticket.photo} alt="User submitted photo" layout="fill" objectFit="contain" data-ai-hint="issue screenshot" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the ticket
+              "{ticket.summary}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTicket} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
