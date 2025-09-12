@@ -12,9 +12,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/icons/logo';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signInAnonymously } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const employeeLoginSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -43,6 +44,7 @@ function LoginPageContent() {
   const { toast } = useToast();
   const role = searchParams.get('role');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const employeeForm = useForm<z.infer<typeof employeeLoginSchema>>({
     resolver: zodResolver(employeeLoginSchema),
@@ -67,11 +69,25 @@ function LoginPageContent() {
     adminForm.reset({ name: '', email: '', password: '' });
   }, [isRegistering, adminForm])
 
-  function onEmployeeSubmit(values: z.infer<typeof employeeLoginSchema>) {
-    login({ name: values.name, role: 'Employee' });
+  async function onEmployeeSubmit(values: z.infer<typeof employeeLoginSchema>) {
+    setIsSubmitting(true);
+    try {
+        await signInAnonymously(auth);
+        login({ name: values.name, role: 'Employee' });
+    } catch(error: any) {
+        console.error('Anonymous sign-in error:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Authentication Error',
+            description: 'Could not sign in anonymously. Please try again.',
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   async function onAdminSubmit(values: AdminFormValues) {
+    setIsSubmitting(true);
     try {
         let userCredential;
         if(isRegistering) {
@@ -97,6 +113,8 @@ function LoginPageContent() {
             title: 'Authentication Error',
             description: error.message || 'An error occurred. Please try again.',
         })
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
@@ -133,7 +151,8 @@ function LoginPageContent() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                   {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Sign In
                 </Button>
               </form>
@@ -182,7 +201,8 @@ function LoginPageContent() {
                         </FormItem>
                     )}
                     />
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isRegistering ? 'Create Account' : 'Sign In'}
                 </Button>
                 <Button type="button" variant="link" className="w-full" onClick={() => setIsRegistering(!isRegistering)}>

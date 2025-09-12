@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { type User } from '@/types';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User as FirebaseUser, updateProfile } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -24,29 +24,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentFirebaseUser) => {
-      setFirebaseUser(currentFirebaseUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentFirebaseUser) => {
+      setLoading(true);
       if (currentFirebaseUser) {
-        const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
-        const email = currentFirebaseUser.email || undefined;
-        // Simple role determination. In a real app, this would be more secure.
-        setUser({ name, email, role: 'Admin' });
-      } else {
-        const storedUser = localStorage.getItem('user');
-        if(storedUser) {
-            try {
-                const parsedUser = JSON.parse(storedUser);
-                if (parsedUser.role === 'Employee') {
-                    setUser(parsedUser);
-                } else {
-                    setUser(null);
-                }
-            } catch {
-                setUser(null);
-            }
+        setFirebaseUser(currentFirebaseUser);
+
+        // Check if user object exists in localStorage to get role and name
+        const storedUserJSON = localStorage.getItem('user');
+        const storedUser = storedUserJSON ? JSON.parse(storedUserJSON) : null;
+        
+        if (currentFirebaseUser.isAnonymous) {
+            // Anonymous user is always an Employee
+            setUser({ name: storedUser?.name || 'Employee', role: 'Employee' });
         } else {
-            setUser(null);
+            // This is a full user (Admin)
+            if (storedUser?.role === 'Admin') {
+                setUser(storedUser);
+            } else {
+                 const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
+                 const email = currentFirebaseUser.email || undefined;
+                 setUser({ name, email, role: 'Admin' });
+            }
         }
+      } else {
+        setUser(null);
+        setFirebaseUser(null);
+        localStorage.removeItem('user');
       }
       setLoading(false);
     });
@@ -65,10 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, pathname, router, loading]);
   
   const login = useCallback((userData: User) => {
-    // For employee login, we'll use local storage since they don't have a Firebase account
-    if (userData.role === 'Employee') {
-        localStorage.setItem('user', JSON.stringify(userData));
-    }
+    localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -77,14 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const logout = useCallback(async () => {
-    if (user?.role === 'Admin') {
-      await signOut(auth);
-    }
-    // For employees, or just to be safe
+    await signOut(auth);
     localStorage.removeItem('user');
     setUser(null);
+    setFirebaseUser(null);
     router.push('/role-selection');
-  }, [router, user]);
+  }, [router]);
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
