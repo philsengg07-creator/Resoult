@@ -1,7 +1,8 @@
 
 'use client';
-import { createContext, useContext, useEffect, ReactNode } from 'react';
-import { useLocalStorage } from './use-local-storage';
+import { createContext, useContext, useEffect, ReactNode, useCallback } from 'react';
+import { useDatabaseList } from './use-database-list';
+import { useDatabaseObject } from './use-database-object';
 import { type Renewal, type AppNotification } from '@/types';
 import { differenceInDays, isSameDay, startOfDay, format } from 'date-fns';
 import { useAuth } from './use-auth';
@@ -13,11 +14,11 @@ const NOTIFICATION_DAYS = [0, 1, 5, 10, 30];
 
 export function RenewalProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [renewals] = useLocalStorage<Renewal[]>('renewals', []);
-  const [notifications, setNotifications] = useLocalStorage<AppNotification[]>('notifications', []);
-  const [lastChecked, setLastChecked] = useLocalStorage<string | null>('renewalLastChecked', null);
+  const { data: renewals } = useDatabaseList<Renewal>('renewals');
+  const { data: notifications, add: addNotification } = useDatabaseList<AppNotification>('notifications');
+  const [lastChecked, setLastChecked] = useDatabaseObject<string | null>('renewalLastChecked', null);
 
-  useEffect(() => {
+  const checkRenewals = useCallback(() => {
     if (user?.role !== 'Admin' || typeof window === 'undefined') return;
     
     const today = startOfDay(new Date());
@@ -26,14 +27,17 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
         return;
     }
 
-    const newNotifications: AppNotification[] = [];
+    const newNotifications: Omit<AppNotification, 'id'>[] = [];
 
     renewals.forEach(renewal => {
       const renewalDate = startOfDay(new Date(renewal.renewalDate));
       const daysLeft = differenceInDays(renewalDate, today);
 
-      if (daysLeft >= 0 && NOTIFICATION_DAYS.includes(daysLeft)) {
-        
+      if (daysLeft < 0) return;
+
+      const shouldNotify = NOTIFICATION_DAYS.includes(daysLeft);
+      
+      if (shouldNotify) {
         const hasBeenNotifiedToday = notifications.some(
           n => n.refId === renewal.id && isSameDay(new Date(n.createdAt), today) && (n.message.includes(`in ${daysLeft} day(s)`) || (daysLeft === 0 && n.message.includes('expiring today')))
         );
@@ -44,7 +48,6 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
             : `The warranty for "${renewal.itemName}" is expiring in ${daysLeft} day(s).`;
 
           newNotifications.push({
-            id: crypto.randomUUID(),
             refId: renewal.id,
             type: 'renewal',
             message,
@@ -56,9 +59,9 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
     });
 
     if (newNotifications.length > 0) {
-      setNotifications(prevNotifications => [...newNotifications, ...prevNotifications]);
-      
       newNotifications.forEach(notification => {
+        addNotification(notification);
+        
         if (user.email) {
           const renewal = renewals.find(r => r.id === notification.refId);
           if(renewal){
@@ -78,8 +81,20 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
       });
     }
     setLastChecked(today.toISOString());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renewals, user]); // Only re-run when renewals or user changes
+  }, [user, renewals, notifications, addNotification, lastChecked, setLastChecked]);
+
+
+  useEffect(() => {
+    // Run once on mount and then rely on interval
+    checkRenewals();
+
+    // Check every hour
+    const interval = setInterval(() => {
+        checkRenewals();
+    }, 1000 * 60 * 60);
+
+    return () => clearInterval(interval);
+  }, [checkRenewals]);
 
   return <RenewalContext.Provider value={undefined}>{children}</RenewalContext.Provider>;
 }

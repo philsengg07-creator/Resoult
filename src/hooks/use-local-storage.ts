@@ -1,8 +1,10 @@
 
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 
+// This hook is no longer the primary method for data storage.
+// It is kept for potential auxiliary uses but Firebase is the main data source.
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
   const readValue = useCallback((): T => {
     if (typeof window === 'undefined') {

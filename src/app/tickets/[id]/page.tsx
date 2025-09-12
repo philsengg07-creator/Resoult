@@ -1,5 +1,6 @@
+
 'use client';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useDatabaseList } from '@/hooks/use-database-list';
 import { type Ticket, type TicketStatus } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -8,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusColors: Record<TicketStatus, string> = {
   'Unopened': 'bg-blue-500 hover:bg-blue-600',
@@ -20,36 +22,61 @@ const statusColors: Record<TicketStatus, string> = {
 export default function TicketDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { id } = params;
-  const [tickets, setTickets] = useLocalStorage<Ticket[]>('tickets', []);
-  const ticket = tickets.find((t) => t.id === id);
+  const { data: tickets, update: updateTicket, loading: ticketsLoading } = useDatabaseList<Ticket>('tickets');
+  
+  const ticket = useMemo(() => tickets.find((t) => t.id === id), [tickets, id]);
+
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+  
+  useEffect(() => {
+    if (isClient && user?.role === 'Admin' && ticket?.status === 'Unopened') {
+        updateTicket(ticket.id, { ...ticket, status: 'Open' });
+    }
+  }, [isClient, user, ticket, updateTicket]);
+
 
   useEffect(() => {
-    if (isClient && user?.role === 'Admin' && id) {
-      const currentTicket = tickets.find(t => t.id === id);
-      if(currentTicket && currentTicket.status === 'Unopened') {
-         setTickets(tickets.map(t => t.id === id ? { ...t, status: 'Open' } : t));
+    if (isClient && !authLoading) {
+      if (user?.role === 'Employee') {
+        router.push('/tickets/new');
+      }
+      if (!user) {
+        router.push('/role-selection');
       }
     }
-  }, [isClient, user, id, tickets, setTickets]);
-
-
-  useEffect(() => {
-    if (isClient && user?.role === 'Employee') {
-      router.push('/tickets/new');
-    }
-    if (isClient && !user) {
-      router.push('/role-selection');
-    }
-  }, [user, router, isClient]);
+  }, [user, router, isClient, authLoading]);
   
-  if (!isClient || user?.role === 'Employee' || !user) {
+  const isLoading = !isClient || authLoading || ticketsLoading;
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto max-w-4xl space-y-6">
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+            </Card>
+            <div className="grid md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 space-y-6">
+                    <Skeleton className="h-48 w-full" />
+                    <Skeleton className="h-32 w-full" />
+                </div>
+                <div className="space-y-6">
+                    <Skeleton className="h-64 w-full" />
+                </div>
+            </div>
+        </div>
+    );
+  }
+  
+  if (user?.role === 'Employee' || !user) {
     return null;
   }
 
@@ -66,7 +93,7 @@ export default function TicketDetailsPage() {
 
   const handleStatusChange = (newStatus: TicketStatus) => {
     if (newStatus === 'Unopened') return;
-    setTickets(tickets.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    updateTicket(ticket.id, { ...ticket, status: newStatus });
   };
 
   return (

@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 export type TicketStatus = 'Unopened' | 'Open' | 'In Progress' | 'Closed';
 
+// When using Firebase, ID is the key of the object and not part of the object itself.
+// But we add it to the type for client-side convenience.
 export interface Ticket {
   id: string;
   name: string;

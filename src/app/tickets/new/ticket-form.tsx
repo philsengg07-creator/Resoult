@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useDatabaseList } from '@/hooks/use-database-list';
 import { type Ticket, type AppNotification } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,10 +25,10 @@ const formSchema = z.object({
 
 export function TicketForm() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [, setTickets] = useLocalStorage<Ticket[]>('tickets', []);
-  const [, setNotifications] = useLocalStorage<AppNotification[]>('notifications', []);
+  const { add: addTicket } = useDatabaseList<Ticket>('tickets');
+  const { add: addNotification } = useDatabaseList<AppNotification>('notifications');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,13 +44,15 @@ export function TicketForm() {
   });
 
   useEffect(() => {
-    if (isClient && user?.name) {
-      form.setValue('name', user.name);
+    if (isClient && !authLoading) {
+        if (user?.name) {
+          form.setValue('name', user.name);
+        }
+        if (user?.role === 'Admin') {
+            router.push('/dashboard');
+        }
     }
-    if (isClient && user?.role === 'Admin') {
-        router.push('/dashboard');
-    }
-  }, [user, form, router, isClient]);
+  }, [user, form, router, isClient, authLoading]);
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -85,8 +87,7 @@ export function TicketForm() {
     try {
       const summary = values.problemDescription.length > 50 ? values.problemDescription.substring(0, 47) + '...' : values.problemDescription;
 
-      const newTicket: Ticket = {
-        id: crypto.randomUUID(),
+      const newTicket: Omit<Ticket, 'id'> = {
         ...values,
         createdAt: new Date().toISOString(),
         status: 'Unopened',
@@ -94,19 +95,18 @@ export function TicketForm() {
         summary,
       };
 
-      setTickets((prev) => [...prev, newTicket]);
+      const ticketId = addTicket(newTicket);
 
-      const newNotification: AppNotification = {
-        id: crypto.randomUUID(),
-        refId: newTicket.id,
+      const newNotification: Omit<AppNotification, 'id'> = {
+        refId: ticketId,
         type: 'ticket',
-        message: `New ticket "${newTicket.summary}" from ${newTicket.name}.`,
+        message: `New ticket "${summary}" from ${values.name}.`,
         createdAt: new Date().toISOString(),
         read: false,
       };
-      setNotifications((prev) => [newNotification, ...prev]);
+      addNotification(newNotification);
 
-      const wasDesktopNotified = showDesktopNotification('New Ticket Created', `Ticket: ${newTicket.summary}`);
+      const wasDesktopNotified = showDesktopNotification('New Ticket Created', `Ticket: ${summary}`);
 
       if (!wasDesktopNotified) {
          toast({
@@ -130,8 +130,8 @@ export function TicketForm() {
     }
   }
 
-  if (!isClient || user?.role === 'Admin') {
-    return null;
+  if (!isClient || authLoading || user?.role === 'Admin') {
+    return null; // Or a loading skeleton
   }
 
   return (

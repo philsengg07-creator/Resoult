@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { NotificationBell } from './notification-bell';
+import { Skeleton } from './ui/skeleton';
 
 export function AppHeader() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -32,15 +33,23 @@ export function AppHeader() {
   if (!showHeader) {
     return null;
   }
+  
+  const isLoading = loading || !isClient;
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
       <div className="md:hidden">
         <SidebarTrigger />
       </div>
-      <h1 className="text-lg font-semibold md:text-xl">{isClient ? getTitle() : ''}</h1>
+      <h1 className="text-lg font-semibold md:text-xl">{!isLoading ? getTitle() : ''}</h1>
       <div className="ml-auto flex items-center gap-4">
-        {isClient && user && (
+        {isLoading ? (
+            <div className="flex items-center gap-4">
+                <Skeleton className="h-6 w-32 hidden sm:block" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+        ) : user ? (
           <>
             <span className="text-sm text-muted-foreground hidden sm:inline">
               Welcome, {user.name} ({user.role})
@@ -51,7 +60,7 @@ export function AppHeader() {
               <span className="sr-only">Log Out</span>
             </Button>
           </>
-        )}
+        ) : null}
       </div>
     </header>
   );

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useDatabaseList } from '@/hooks/use-database-list';
 import { type AppNotification } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ScrollArea } from './ui/scroll-area';
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useLocalStorage<AppNotification[]>('notifications', []);
+  const { data: notifications, update: updateNotification, loading } = useDatabaseList<AppNotification>('notifications');
   const [isOpen, setIsOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
@@ -20,22 +20,34 @@ export function NotificationBell() {
     setIsClient(true);
   }, []);
 
-  const unreadCount = isClient ? notifications.filter((n) => !n.read).length : 0;
+  const unreadCount = useMemo(() => {
+    if (!isClient || loading) return 0;
+    return notifications.filter((n) => !n.read).length;
+  }, [notifications, isClient, loading]);
 
-  const handleNotificationClick = (notificationId: string) => {
-    setNotifications(
-      notifications.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-    );
+  const handleNotificationClick = (notification: AppNotification) => {
+    if (!notification.read) {
+        updateNotification(notification.id, { ...notification, read: true });
+    }
   };
   
-  const unreadNotifications = useMemo(() => {
-      if (!isClient) return [];
+  const sortedNotifications = useMemo(() => {
+      if (!isClient || loading) return [];
       return [...notifications]
-        .filter(n => !n.read)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [notifications, isClient]);
+  }, [notifications, isClient, loading]);
   
-  if (!isClient) return null;
+  const unreadNotifications = useMemo(() => {
+      return sortedNotifications.filter(n => !n.read);
+  }, [sortedNotifications]);
+  
+  if (!isClient || loading) {
+     return (
+        <Button variant="ghost" size="icon" className="relative" disabled>
+            <Bell className="h-5 w-5" />
+        </Button>
+     );
+  }
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -51,18 +63,19 @@ export function NotificationBell() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex justify-between items-center">
           <h4 className="font-medium text-sm">Notifications</h4>
+          {unreadCount > 0 && <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">{unreadCount} unread</span>}
         </div>
         <ScrollArea className="h-[300px]">
-        {unreadNotifications.length > 0 ? (
+        {sortedNotifications.length > 0 ? (
           <div className="flex flex-col">
-            {unreadNotifications.map((notification) => (
+            {sortedNotifications.map((notification) => (
               <Link
                 key={notification.id}
                 href={notification.type === 'renewal' ? `/renewals` : `/tickets/${notification.refId}`}
                 className="flex items-start gap-4 p-4 hover:bg-muted/50"
-                onClick={() => handleNotificationClick(notification.id)}
+                onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex-shrink-0 pt-1">
                     {notification.type === 'renewal' ? (
@@ -83,7 +96,7 @@ export function NotificationBell() {
           </div>
         ) : (
           <div className="text-center text-sm text-muted-foreground p-8">
-            You have no new notifications.
+            You have no notifications.
           </div>
         )}
         </ScrollArea>

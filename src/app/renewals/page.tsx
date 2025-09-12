@@ -4,7 +4,7 @@
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useDatabaseList } from '@/hooks/use-database-list';
 import { type Renewal } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +36,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const renewalSchema = z.object({
   itemName: z.string().min(2, 'Item name is required.'),
@@ -47,10 +48,10 @@ const renewalSchema = z.object({
 type RenewalFormValues = z.infer<typeof renewalSchema>;
 
 export default function RenewalsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const [renewals, setRenewals] = useLocalStorage<Renewal[]>('renewals', []);
+  const { data: renewals, add: addRenewal, removeById: deleteRenewal, loading: renewalsLoading } = useDatabaseList<Renewal>('renewals');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
 
@@ -67,31 +68,27 @@ export default function RenewalsPage() {
   }, []);
 
   useEffect(() => {
-    if (isClient && !user) {
-      router.push('/role-selection');
-    } else if (isClient && user?.role === 'Employee') {
-      router.push('/tickets/new');
+    if (isClient && !authLoading) {
+      if (!user) {
+        router.push('/role-selection');
+      } else if (user?.role === 'Employee') {
+        router.push('/tickets/new');
+      }
     }
-  }, [user, isClient, router]);
+  }, [user, isClient, router, authLoading]);
 
   const onSubmit = (data: RenewalFormValues) => {
-    const newRenewal: Renewal = {
-      id: crypto.randomUUID(),
+    const newRenewal: Omit<Renewal, 'id'> = {
       itemName: data.itemName,
       purchaseDate: data.purchaseDate.toISOString(),
       renewalDate: data.renewalDate.toISOString(),
       notes: data.notes,
     };
-    setRenewals([...renewals, newRenewal]);
+    addRenewal(newRenewal);
     toast({ title: 'Success', description: 'Renewal item added.' });
     form.reset();
     setIsFormOpen(false);
   };
-  
-  const deleteRenewal = (id: string) => {
-    setRenewals(renewals.filter(r => r.id !== id));
-    toast({ title: 'Success', description: 'Renewal item deleted.' });
-  }
 
   const getDaysLeft = (renewalDate: string) => {
     const days = differenceInDays(new Date(renewalDate), new Date());
@@ -100,7 +97,29 @@ export default function RenewalsPage() {
     return `${days} day(s)`;
   }
 
-  if (!isClient || !user || user.role !== 'Admin') {
+  const isLoading = !isClient || authLoading || renewalsLoading;
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto space-y-6">
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {[...Array(3)].map((_, i) => (
+                            <Skeleton key={i} className="h-12 w-full" />
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+  
+  if (!user || user.role !== 'Admin') {
     return null;
   }
 

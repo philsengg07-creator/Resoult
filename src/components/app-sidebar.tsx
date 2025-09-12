@@ -18,7 +18,7 @@ import { useState, useEffect } from 'react';
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -30,6 +30,8 @@ export function AppSidebar() {
   if (!showSidebar) {
     return null;
   }
+  
+  const isLoading = !isClient || loading;
 
   return (
     <Sidebar>
@@ -41,7 +43,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {!isClient || !user ? (
+          {isLoading ? (
             <>
               <SidebarMenuItem>
                 <SidebarMenuSkeleton showIcon />
@@ -53,7 +55,7 @@ export function AppSidebar() {
                 <SidebarMenuSkeleton showIcon />
               </SidebarMenuItem>
             </>
-          ) : (
+          ) : user ? (
             <>
               {user?.role === 'Admin' && (
                 <>
@@ -111,7 +113,7 @@ export function AppSidebar() {
                   </SidebarMenuItem>
               )}
             </>
-          )}
+          ) : null}
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>

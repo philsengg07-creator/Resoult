@@ -1,6 +1,7 @@
+
 'use client';
 import Link from 'next/link';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useDatabaseList } from '@/hooks/use-database-list';
 import { type Ticket, type TicketStatus } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusColors: Record<TicketStatus, string> = {
   'Unopened': 'bg-blue-500 hover:bg-blue-600',
@@ -19,8 +21,8 @@ const statusColors: Record<TicketStatus, string> = {
 };
 
 export default function TicketsPage() {
-  const [tickets] = useLocalStorage<Ticket[]>('tickets', []);
-  const { user } = useAuth();
+  const { data: tickets, loading: ticketsLoading } = useDatabaseList<Ticket>('tickets');
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'All'>('All');
@@ -30,15 +32,35 @@ export default function TicketsPage() {
   }, []);
 
   useEffect(() => {
-    if (isClient && user?.role === 'Employee') {
-      router.push('/tickets/new');
+    if (isClient && !authLoading) {
+        if (user?.role === 'Employee') {
+          router.push('/tickets/new');
+        }
+         if (!user) {
+          router.push('/role-selection');
+        }
     }
-     if (isClient && !user) {
-      router.push('/role-selection');
-    }
-  }, [user, router, isClient]);
+  }, [user, router, isClient, authLoading]);
 
-  if (!isClient || user?.role === 'Employee' || !user) {
+  const isLoading = !isClient || authLoading || ticketsLoading;
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto space-y-6">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-8 w-40" />
+                <Skeleton className="h-10 w-44" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-56 w-full" />
+                ))}
+            </div>
+        </div>
+    );
+  }
+  
+  if (user?.role === 'Employee' || !user) {
     return null;
   }
 
