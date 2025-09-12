@@ -139,7 +139,7 @@ export default function TicketDetailsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Additional Information</CardTitle>
-              </CardHeader>
+              </Header>
               <CardContent>
                 <p>{ticket.additionalInfo}</p>
               </CardContent>
