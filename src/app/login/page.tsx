@@ -38,7 +38,7 @@ type AdminFormValues = AdminLoginValues | AdminRegisterValues;
 
 
 function LoginPageContent() {
-  const { login, user } = useAuth();
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -72,8 +72,12 @@ function LoginPageContent() {
   async function onEmployeeSubmit(values: z.infer<typeof employeeLoginSchema>) {
     setIsSubmitting(true);
     try {
+        localStorage.setItem('user', JSON.stringify({ name: values.name, role: 'Employee' }));
         await signInAnonymously(auth);
-        login({ name: values.name, role: 'Employee' });
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+        // The useAuth hook will handle redirection on auth state change.
     } catch(error: any) {
         console.error('Anonymous sign-in error:', error);
         toast({
@@ -81,9 +85,9 @@ function LoginPageContent() {
             title: 'Authentication Error',
             description: 'Could not sign in anonymously. Please try again.',
         });
-    } finally {
         setIsSubmitting(false);
     }
+    // No need to set isSubmitting to false here if redirection is successful
   }
 
   async function onAdminSubmit(values: AdminFormValues) {
@@ -94,18 +98,22 @@ function LoginPageContent() {
             const registerValues = values as AdminRegisterValues;
             userCredential = await createUserWithEmailAndPassword(auth, registerValues.email, registerValues.password);
             await updateProfile(userCredential.user, { displayName: registerValues.name });
+            const adminUser = { name: registerValues.name, role: 'Admin' as const, email: registerValues.email };
+            localStorage.setItem('user', JSON.stringify(adminUser));
+
         } else {
             const loginValues = values as AdminLoginValues;
             userCredential = await signInWithEmailAndPassword(auth, loginValues.email, loginValues.password);
+            const name = userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Admin';
+            const adminUser = { name, role: 'Admin' as const, email: userCredential.user.email ?? undefined };
+            localStorage.setItem('user', JSON.stringify(adminUser));
         }
-      
-      const loggedInUser = userCredential.user;
-      if (loggedInUser.displayName && loggedInUser.email) {
-        login({ name: loggedInUser.displayName, role: 'Admin', email: loggedInUser.email });
-      } else {
-         const nameFromEmail = loggedInUser.email?.split('@')[0] || 'Admin';
-         login({ name: nameFromEmail, role: 'Admin', email: loggedInUser.email ?? undefined });
-      }
+
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+        // The useAuth hook will handle redirection.
+
     } catch (error: any) {
       console.error('Firebase authentication error:', error);
        toast({
@@ -113,7 +121,6 @@ function LoginPageContent() {
             title: 'Authentication Error',
             description: error.message || 'An error occurred. Please try again.',
         })
-    } finally {
         setIsSubmitting(false);
     }
   }

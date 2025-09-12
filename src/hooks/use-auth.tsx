@@ -4,12 +4,11 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { type User } from '@/types';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut, User as FirebaseUser, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
-  login: (user: User) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -29,24 +28,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (currentFirebaseUser) {
         setFirebaseUser(currentFirebaseUser);
 
+        // ALWAYS read from localStorage after auth state changes.
+        // This makes onAuthStateChanged the single source of truth.
         const storedUserJSON = localStorage.getItem('user');
         const storedUser = storedUserJSON ? JSON.parse(storedUserJSON) : null;
         
         if (currentFirebaseUser.isAnonymous) {
-            // Ensure we have a name for anonymous users, otherwise, it's an invalid state.
+            // For anonymous users, the name is ONLY in local storage.
             if (storedUser?.name) {
                 setUser({ name: storedUser.name, role: 'Employee' });
             } else {
-                // This case should ideally not happen if login flow is correct.
-                // You might want to handle this by signing out or redirecting.
-                signOut(auth);
+                // This state is inconsistent, sign out.
+                await signOut(auth);
             }
         } else {
+            // For registered admins, firebase profile is the source of truth.
             const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
             const email = currentFirebaseUser.email || undefined;
             const adminUser = { name, email, role: 'Admin' as const };
             setUser(adminUser);
-            localStorage.setItem('user', JSON.stringify(adminUser));
+            localStorage.setItem('user', JSON.stringify(adminUser)); // Keep LS in sync
         }
       } else {
         setUser(null);
@@ -73,27 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [user, pathname, router, loading]);
-  
-  const login = useCallback((userData: User) => {
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-    // Redirection is now handled by the useEffect above
-  }, []);
 
   const logout = useCallback(async () => {
     await signOut(auth);
-    // Clear local storage on logout to ensure clean state
-    localStorage.removeItem('user');
-    setUser(null);
-    setFirebaseUser(null);
-    router.push('/role-selection');
+    // State will be cleared by onAuthStateChanged listener
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, firebaseUser, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
