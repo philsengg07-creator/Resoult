@@ -26,7 +26,7 @@ const formSchema = z.object({
 
 export function TicketForm() {
   const router = useRouter();
-  const { user, loading: authLoading, firebaseUser } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { add: addTicket } = useDatabaseList<Ticket>('tickets');
   const { add: addNotification } = useDatabaseList<AppNotification>('notifications');
@@ -116,22 +116,10 @@ export function TicketForm() {
       };
       addNotification(newNotification);
 
-      // This is a simplification. In a real app, you'd have a more robust way
-      // to get all admin user IDs. Here we just trigger for the current admin if one is logged in
-      // on another device, or we find one. This part is tricky without a proper user list.
-      // For this app, we'll assume there is one admin user and their UID is what we need.
-      // A robust solution would be a backend function that fans out to all admins.
-      // For now we will hardcode the admin user ID. 
-      const adminId = 'H2850vQO5ZU1C02x4Hq42oXv5g12'; 
-      if (adminId) {
-          sendPushNotification({
-              userId: adminId,
-              title: 'New Ticket Submitted!',
-              body: `Ticket: ${summary}`
-          }).catch(console.error);
-      } else {
-        console.log("Could not determine admin to send push notification to.");
-      }
+      sendPushNotification({
+          title: 'New Ticket Submitted!',
+          body: `Ticket: ${summary}`
+      }).catch(console.error);
 
       toast({
           title: 'Ticket Created!',

@@ -3,8 +3,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { type User } from '@/types';
 import { useRouter, usePathname } from 'next/navigation';
-import { auth } from '@/lib/firebase';
+import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { ref, set } from 'firebase/database';
+
 
 interface AuthContextType {
   user: User | null;
@@ -48,6 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const adminUser = { name, email, role: 'Admin' as const };
             setUser(adminUser);
             localStorage.setItem('user', JSON.stringify(adminUser)); // Keep LS in sync
+
+            // Add admin to the admins list for notifications
+            const adminRef = ref(database, `admins/${currentFirebaseUser.uid}`);
+            set(adminRef, true);
         }
       } else {
         setUser(null);
@@ -78,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await signOut(auth);
     // State will be cleared by onAuthStateChanged listener
-  }, [router]);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, logout, loading }}>

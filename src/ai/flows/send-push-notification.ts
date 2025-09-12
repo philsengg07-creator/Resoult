@@ -13,9 +13,7 @@ import admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK if it hasn't been already.
 // This is crucial for server-side operations.
-// You must set the GOOGLE_APPLICATION_CREDENTIALS environment variable in your deployment
-// to a service account key with permissions to send FCM messages.
-if (admin.apps.length === 0) {
+if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.applicationDefault(),
     databaseURL: 'https://studio-288338678-646a3-default-rtdb.asia-southeast1.firebasedatabase.app/',
@@ -33,26 +31,36 @@ const sendPushNotificationFlow = ai.defineFlow(
     outputSchema: z.void(),
   },
   async (input) => {
-    const { userId, title, body } = input;
-    
-    // 1. Get user's device tokens from the database
+    const { title, body } = input;
     const db = admin.database();
-    const tokensSnapshot = await db.ref(`device_tokens/${userId}`).once('value');
-    const tokensVal = tokensSnapshot.val();
 
-    if (!tokensVal) {
-      console.log('No device tokens found for user:', userId);
+    // 1. Get all admin UIDs
+    const adminsSnapshot = await db.ref('admins').once('value');
+    const adminUids = adminsSnapshot.val() ? Object.keys(adminsSnapshot.val()) : [];
+
+    if (adminUids.length === 0) {
+      console.log('No admin users found to send notifications to.');
       return;
     }
 
-    const tokens = Object.keys(tokensVal);
+    // 2. For each admin, get their device tokens
+    const allTokens: string[] = [];
+    for (const uid of adminUids) {
+      const tokensSnapshot = await db.ref(`device_tokens/${uid}`).once('value');
+      const tokensVal = tokensSnapshot.val();
+      if (tokensVal) {
+        allTokens.push(...Object.keys(tokensVal));
+      }
+    }
+    
+    const uniqueTokens = [...new Set(allTokens)];
 
-    if (tokens.length === 0) {
-      console.log('No device tokens found for user:', userId);
+    if (uniqueTokens.length === 0) {
+      console.log('No device tokens found for any admin users.');
       return;
     }
 
-    // 2. Send messages to the devices
+    // 3. Send messages to the devices
     const message = {
       notification: {
         title,
@@ -63,7 +71,7 @@ const sendPushNotificationFlow = ai.defineFlow(
             icon: '/icons/icon-192x192.png',
         },
       },
-      tokens: tokens,
+      tokens: uniqueTokens,
     };
 
     try {
@@ -73,11 +81,11 @@ const sendPushNotificationFlow = ai.defineFlow(
         const failedTokens: string[] = [];
         response.responses.forEach((resp, idx) => {
           if (!resp.success) {
-            failedTokens.push(tokens[idx]);
+            failedTokens.push(uniqueTokens[idx]);
           }
         });
         console.log('List of tokens that caused failures: ' + failedTokens);
-        // TODO: Clean up invalid tokens
+        // Here you could add logic to clean up invalid tokens from the database.
       }
     } catch (error) {
       console.error('Error sending message:', error);
