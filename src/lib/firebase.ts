@@ -1,6 +1,7 @@
 'use client';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
   projectId: 'studio-288338678-646a3',
@@ -9,14 +10,18 @@ const firebaseConfig = {
   apiKey: 'AIzaSyCs6YdyKhNdnXbbhmmEjq54obYSCnlV_ec',
   authDomain: 'studio-288338678-646a3.firebaseapp.com',
   messagingSenderId: '711064706944',
+  databaseURL: 'https://studio-288338678-646a3-default-rtdb.asia-southeast1.firebasedatabase.app/',
 };
 
 // Initialize Firebase
 let app;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
+} else {
+  app = getApps()[0];
 }
 
 const auth = getAuth(app);
+const database = getDatabase(app);
 
-export { app, auth };
+export { app, auth, database };
