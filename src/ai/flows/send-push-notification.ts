@@ -12,7 +12,6 @@ import { PushNotificationInput, PushNotificationInputSchema } from '@/types';
 import admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK if it hasn't been already.
-// This is crucial for server-side operations.
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.applicationDefault(),
@@ -33,13 +32,12 @@ const sendPushNotificationFlow = ai.defineFlow(
   async (input) => {
     const { title, body } = input;
     const db = admin.database();
-
-    // 1. Get all admin UIDs
-    const adminsSnapshot = await db.ref('admins').once('value');
-    const adminUids = adminsSnapshot.val() ? Object.keys(adminsSnapshot.val()) : [];
+    
+    // Hardcoded Admin UID provided by the user
+    const adminUids = ['Pb2Pgfb4EiXMGLrNV1y24i3qa6C3'];
 
     if (adminUids.length === 0) {
-      console.log('No admin users found to send notifications to.');
+      console.log('No admin users configured to send notifications to.');
       return;
     }
 
@@ -49,7 +47,11 @@ const sendPushNotificationFlow = ai.defineFlow(
       const tokensSnapshot = await db.ref(`device_tokens/${uid}`).once('value');
       const tokensVal = tokensSnapshot.val();
       if (tokensVal) {
-        allTokens.push(...Object.keys(tokensVal));
+        const userTokens = Object.keys(tokensVal);
+        console.log(`Found tokens for admin ${uid}:`, userTokens);
+        allTokens.push(...userTokens);
+      } else {
+        console.log(`No device tokens found for admin ${uid}.`);
       }
     }
     
@@ -85,7 +87,6 @@ const sendPushNotificationFlow = ai.defineFlow(
           }
         });
         console.log('List of tokens that caused failures: ' + failedTokens);
-        // Here you could add logic to clean up invalid tokens from the database.
       }
     } catch (error) {
       console.error('Error sending message:', error);

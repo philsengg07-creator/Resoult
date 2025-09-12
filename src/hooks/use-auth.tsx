@@ -50,10 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const adminUser = { name, email, role: 'Admin' as const };
             setUser(adminUser);
             localStorage.setItem('user', JSON.stringify(adminUser)); // Keep LS in sync
-
-            // Add admin to the admins list for notifications
-            const adminRef = ref(database, `admins/${currentFirebaseUser.uid}`);
-            set(adminRef, true);
         }
       } else {
         setUser(null);
