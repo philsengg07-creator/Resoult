@@ -20,6 +20,7 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     if (!userId) {
       if (!authLoading) {
         setLoading(false);
+        setData([]);
       }
       return;
     }

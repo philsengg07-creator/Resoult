@@ -130,7 +130,7 @@ export function TicketForm() {
     }
   }
 
-  if (!isClient || authLoading || user?.role === 'Admin') {
+  if (!isClient || authLoading || (user && user.role !== 'Employee')) {
     return null; // Or a loading skeleton
   }
 
