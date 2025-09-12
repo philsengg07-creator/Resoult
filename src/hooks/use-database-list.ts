@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { database } from '@/lib/firebase';
 import { ref, onValue, set, push, remove } from 'firebase/database';
 import { useAuth } from './use-auth';
@@ -13,18 +13,15 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
   const isAdmin = user?.role === 'Admin';
   const adminId = firebaseUser?.uid;
   const employeeId = 'employee_shared';
-  
-  const userId = useMemo(() => {
-    if (authLoading) return null;
-    return isAdmin ? adminId : employeeId;
-  }, [authLoading, isAdmin, adminId]);
-
 
   useEffect(() => {
-    if (authLoading) return;
-    
+    if (authLoading) {
+        return;
+    }
     setLoading(true);
-    let unsubscribes: (() => void)[] = [];
+    setData([]);
+
+    const unsubscribes: (() => void)[] = [];
 
     const handleData = (snapshot: any, pathPrefix: string) => {
         const val = snapshot.val();
@@ -65,8 +62,7 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
         checkLoadingDone();
       }, () => { employeeDataLoaded = true; checkLoadingDone(); });
 
-      unsubscribes = [onAdminValue, onEmployeeValue];
-      setData([]);
+      unsubscribes.push(onAdminValue, onEmployeeValue);
 
     } else if (!isAdmin && user) {
       // Employee: Listen only to employee path
@@ -76,11 +72,10 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
         handleData(snapshot, employeeId);
         setLoading(false);
       }, () => setLoading(false));
-      unsubscribes = [onEmployeeValue];
-      setData([]);
+      unsubscribes.push(onEmployeeValue);
     } else if (!authLoading) {
+      // No user, not loading
       setLoading(false);
-      setData([]);
     }
 
     return () => unsubscribes.forEach(unsub => unsub());
@@ -90,10 +85,15 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     if (authLoading) throw new Error('Auth state still loading');
     if (!user) throw new Error('User not authenticated');
     
-    // Employees write to shared, Admins write to their own
-    const writeId = isAdmin ? adminId : employeeId;
+    let writeId: string | undefined;
+    if (isAdmin) {
+        writeId = adminId;
+    } else {
+        writeId = employeeId;
+    }
+
     if (!writeId) {
-        console.error("useDatabaseList: Cannot 'add' because writeId is not available.", {isAdmin, adminId});
+        console.error("useDatabaseList: Cannot 'add' because writeId is not available.", {isAdmin, adminId, userRole: user.role});
         throw new Error('User ID not available for database write.');
     }
     
