@@ -30,7 +30,6 @@ export function TicketForm() {
   const { add: addTicket } = useDatabaseList<Ticket>('tickets');
   const { add: addNotification } = useDatabaseList<AppNotification>('notifications');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
@@ -57,17 +56,32 @@ export function TicketForm() {
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPhotoPreview(reader.result as string);
+        };
+        reader.onerror = () => {
+          toast({
+            variant: 'destructive',
+            title: 'Photo Error',
+            description: 'Could not read the selected photo. Please try another file.',
+          });
+          setPhotoPreview(null);
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+         toast({
+            variant: 'destructive',
+            title: 'Photo Error',
+            description: 'There was an unexpected error with the photo. Please try again.',
+          });
+         setPhotoPreview(null);
+      }
     }
   };
 
   const removePhoto = () => {
-    setPhotoFile(null);
     setPhotoPreview(null);
     const fileInput = document.getElementById('photo-upload') as HTMLInputElement;
     if(fileInput) fileInput.value = '';
@@ -121,12 +135,12 @@ export function TicketForm() {
       form.reset({ name: user?.name ?? '', problemDescription: '', additionalInfo: '' });
       removePhoto();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create ticket:', error);
       toast({
         variant: 'destructive',
         title: 'Submission Error',
-        description: 'Could not create ticket. Please try again.',
+        description: error.message || 'Could not create ticket. Please try again.',
       });
     } finally {
         setIsSubmitting(false);
@@ -224,5 +238,3 @@ export function TicketForm() {
     </Card>
   );
 }
-
-    
