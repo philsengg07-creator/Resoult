@@ -13,12 +13,17 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
   const isAdmin = user?.role === 'Admin';
   const adminId = firebaseUser?.uid;
   const employeeId = 'employee_shared';
+  
+  const userId = useMemo(() => {
+    if (authLoading) return null;
+    return isAdmin ? adminId : employeeId;
+  }, [authLoading, isAdmin, adminId]);
+
 
   useEffect(() => {
     if (authLoading) return;
     
     setLoading(true);
-    setData([]); // Reset data on path/user change
     let unsubscribes: (() => void)[] = [];
 
     const handleData = (snapshot: any, pathPrefix: string) => {
@@ -26,7 +31,6 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
         const list: T[] = val ? Object.keys(val).map(key => ({ ...val[key], id: key, __pathPrefix: pathPrefix } as any)) : [];
         
         setData(currentData => {
-            // Remove old items from this path and add new ones
             const otherData = currentData.filter(item => (item as any).__pathPrefix !== pathPrefix);
             return [...otherData, ...list];
         });
@@ -39,30 +43,41 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
       
       const adminRef = ref(database, adminPath);
       const employeeRef = ref(database, employeePath);
+      
+      let adminDataLoaded = false;
+      let employeeDataLoaded = false;
+
+      const checkLoadingDone = () => {
+        if(adminDataLoaded && employeeDataLoaded) {
+            setLoading(false);
+        }
+      }
 
       const onAdminValue = onValue(adminRef, (snapshot) => {
         handleData(snapshot, adminId);
-        setLoading(false); 
-      }, () => setLoading(false));
+        adminDataLoaded = true;
+        checkLoadingDone();
+      }, () => { adminDataLoaded = true; checkLoadingDone(); });
 
       const onEmployeeValue = onValue(employeeRef, (snapshot) => {
         handleData(snapshot, employeeId);
-        setLoading(false);
-      }, () => setLoading(false));
+        employeeDataLoaded = true;
+        checkLoadingDone();
+      }, () => { employeeDataLoaded = true; checkLoadingDone(); });
 
       unsubscribes = [onAdminValue, onEmployeeValue];
+      setData([]);
 
     } else if (!isAdmin && user) {
       // Employee: Listen only to employee path
       const employeePath = `data/${employeeId}/${path}`;
       const employeeRef = ref(database, employeePath);
       const onEmployeeValue = onValue(employeeRef, (snapshot) => {
-        const val = snapshot.val();
-        const list: T[] = val ? Object.keys(val).map(key => ({ ...val[key], id: key })) : [];
-        setData(list);
+        handleData(snapshot, employeeId);
         setLoading(false);
       }, () => setLoading(false));
       unsubscribes = [onEmployeeValue];
+      setData([]);
     } else if (!authLoading) {
       setLoading(false);
       setData([]);
@@ -77,7 +92,10 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     
     // Employees write to shared, Admins write to their own
     const writeId = isAdmin ? adminId : employeeId;
-    if (!writeId) throw new Error('User ID not available');
+    if (!writeId) {
+        console.error("useDatabaseList: Cannot 'add' because writeId is not available.", {isAdmin, adminId});
+        throw new Error('User ID not available for database write.');
+    }
     
     const dataRef = ref(database, `data/${writeId}/${path}`);
     const newItemRef = push(dataRef);
