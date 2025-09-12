@@ -82,12 +82,14 @@ export default function TicketDetailsPage() {
 
   if (!ticket) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Ticket not found</CardTitle>
-          <CardDescription>The ticket you are looking for does not exist.</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="container mx-auto max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Ticket not found</CardTitle>
+            <CardDescription>The ticket you are looking for does not exist.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     );
   }
 
