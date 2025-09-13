@@ -241,14 +241,14 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   return (
     <>
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-full w-full md:w-3/4 lg:w-2/3 p-0 grid-rows-[auto_1fr] max-h-[90svh]">
-        <SheetHeader className="p-6">
+      <SheetContent className="sm:max-w-full w-full md:w-3/4 lg:w-2/3 p-0 grid grid-rows-[auto_1fr] max-h-screen">
+        <SheetHeader className="p-6 pb-4 border-b">
           <SheetTitle>Entries for: {form.title}</SheetTitle>
           <SheetDescription>
             Manage the encrypted entries for this form. Data is decrypted for display only.
           </SheetDescription>
         </SheetHeader>
-        <ScrollArea className="h-full">
+        <ScrollArea>
             <div className="p-6">
                  <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                     <Table>
