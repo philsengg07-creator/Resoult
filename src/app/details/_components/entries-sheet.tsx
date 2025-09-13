@@ -17,6 +17,17 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 interface EntriesSheetProps {
   isOpen: boolean;
@@ -35,6 +46,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   const [newEntry, setNewEntry] = useState<Record<string, any>>({});
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingEntryData, setEditingEntryData] = useState<Record<string, any>>({});
+  const [entryToDelete, setEntryToDelete] = useState<FormEntry | null>(null);
 
   const getInitialValue = (type: CustomFormField['type']) => {
     switch (type) {
@@ -78,6 +90,13 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     setEditingEntryId(null);
     setEditingEntryData({});
     toast({ title: 'Success', description: 'Entry updated.' });
+  }
+
+  const handleDeleteEntry = () => {
+    if (!entryToDelete) return;
+    onDeleteEntry(entryToDelete.id);
+    toast({ title: 'Success', description: 'Entry deleted.' });
+    setEntryToDelete(null);
   }
 
   const startEditing = (entry: FormEntry) => {
@@ -141,9 +160,9 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
         case 'boolean':
             return decrypted === 'true' ? 'Yes' : 'No';
         case 'date':
-            return format(new Date(decrypted), 'PPP');
+            try { return format(new Date(decrypted), 'PPP'); } catch { return 'Invalid Date';}
         case 'datetime':
-            return format(new Date(decrypted), 'Pp');
+            try { return format(new Date(decrypted), 'Pp'); } catch { return 'Invalid Date';}
         case 'time':
         case 'text':
         case 'textarea':
@@ -153,6 +172,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   };
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-full w-full md:w-3/4 lg:w-2/3 p-0">
         <SheetHeader className="p-6">
@@ -216,7 +236,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
                              <Button onClick={() => startEditing(entry)} size="icon" variant="ghost">
                                 <Edit className="h-4 w-4" />
                             </Button>
-                            <Button onClick={() => onDeleteEntry(entry.id)} size="icon" variant="ghost">
+                            <Button onClick={() => setEntryToDelete(entry)} size="icon" variant="ghost">
                                 <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                         </>
@@ -232,5 +252,22 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
         </div>
       </SheetContent>
     </Sheet>
+    <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete this entry.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setEntryToDelete(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive hover:bg-destructive/90">
+                    Delete
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

@@ -17,6 +17,17 @@ import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { CustomFormDialog } from './_components/custom-form-dialog';
 import { EntriesSheet } from './_components/entries-sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 const ENCRYPTION_KEY_PROMPT_KEY = 'adminonly@123';
 
@@ -34,6 +45,8 @@ export default function DetailsPage() {
   const [isFormSheetOpen, setIsFormSheetOpen] = useState(false);
   const [editingForm, setEditingForm] = useState<CustomForm | null>(null);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [formToDelete, setFormToDelete] = useState<CustomForm | null>(null);
+
 
   const { data: customForms, add: addForm, update: updateForm, removeById: deleteForm, loading: formsLoading } = useDatabaseList<CustomForm>('customForms');
   const { data: formEntries, add: addEntry, update: updateEntry, removeById: deleteEntry, loading: entriesLoading } = useDatabaseList<FormEntry>('formEntries');
@@ -94,6 +107,13 @@ export default function DetailsPage() {
     setEditingForm(null);
     setIsFormDialogOpen(true);
   }
+
+  const handleDeleteForm = () => {
+    if (!formToDelete) return;
+    deleteForm(formToDelete.id);
+    toast({ title: 'Success', description: `Form "${formToDelete.title}" deleted.` });
+    setFormToDelete(null);
+  };
   
   const isLoading = authLoading || formsLoading || entriesLoading;
 
@@ -173,7 +193,7 @@ export default function DetailsPage() {
                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenEditDialog(form); }}>
                           <Edit className="h-4 w-4" />
                       </Button>
-                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteForm(form.id); }}>
+                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setFormToDelete(form); }}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                   </div>
@@ -206,6 +226,24 @@ export default function DetailsPage() {
           decrypt={decrypt}
         />
       )}
+
+      <AlertDialog open={!!formToDelete} onOpenChange={() => setFormToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the form
+                    "{formToDelete?.title}" and all its entries.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setFormToDelete(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteForm} className="bg-destructive hover:bg-destructive/90">
+                    Delete
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
