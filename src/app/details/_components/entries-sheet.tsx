@@ -241,86 +241,88 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   return (
     <>
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-full w-full md:w-3/4 lg:w-2/3 p-0 grid grid-rows-[auto_1fr] max-h-screen">
+      <SheetContent className="sm:max-w-full w-full md:w-3/4 lg:w-2/3 p-0 flex flex-col max-h-screen">
         <SheetHeader className="p-6 pb-4 border-b">
           <SheetTitle>Entries for: {form.title}</SheetTitle>
           <SheetDescription>
             Manage the encrypted entries for this form. Data is decrypted for display only.
           </SheetDescription>
         </SheetHeader>
-        <ScrollArea>
-            <div className="p-6">
-                 <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-                    <Table>
-                        <TableHeader>
-                        <TableRow>
-                            {form.fields.map((field) => (
-                            <TableHead key={field.name}>{field.name}</TableHead>
-                            ))}
-                            <TableHead className="w-[120px]">Actions</TableHead>
-                        </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                        {/* Add New Row */}
-                        <TableRow>
-                            {form.fields.map((field) => (
-                            <TableCell key={field.name}>
-                                {renderInputField(field, newEntry[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, [field.name]: val }))}
-                            </TableCell>
-                            ))}
-                            <TableCell>
-                            <Button onClick={handleAddEntry} size="sm">
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add
-                            </Button>
-                            </TableCell>
-                        </TableRow>
-                        
-                        {/* Existing Entries */}
-                        {entries.map((entry) => (
-                            <TableRow key={entry.id}>
-                                {form.fields.map((field) => {
-                                    const isEditingThisRow = editingEntryId === entry.id;
-                                    return (
-                                        <TableCell key={field.name} className='align-top'>
-                                            {isEditingThisRow ? (
-                                                renderInputField(field, editingEntryData[field.name], (val) => setEditingEntryData({...editingEntryData, [field.name]: val}))
-                                            ) : (
-                                                <div className='text-sm'>{renderDisplayValue(field, entry.data[field.name])}</div>
-                                            )}
-                                        </TableCell>
-                                    )
-                                })}
-                            <TableCell className="flex gap-1 align-top">
-                                {editingEntryId === entry.id ? (
-                                    <>
-                                        <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
-                                            <Save className="h-4 w-4 text-green-600" />
-                                        </Button>
-                                        <Button onClick={cancelEditing} size="icon" variant="ghost">
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Button onClick={() => startEditing(entry)} size="icon" variant="ghost">
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button onClick={() => setEntryToDelete(entry)} size="icon" variant="ghost">
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </>
-                                )}
-                            </TableCell>
+        <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+                <div className="p-6">
+                    <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                        <Table>
+                            <TableHeader>
+                            <TableRow>
+                                {form.fields.map((field) => (
+                                <TableHead key={field.name}>{field.name}</TableHead>
+                                ))}
+                                <TableHead className="w-[120px]">Actions</TableHead>
                             </TableRow>
-                        ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
-                {entries.length === 0 && (
-                    <p className="text-center text-muted-foreground mt-8">No entries for this form yet.</p>
-                )}
-            </div>
-        </ScrollArea>
+                            </TableHeader>
+                            <TableBody>
+                            {/* Add New Row */}
+                            <TableRow>
+                                {form.fields.map((field) => (
+                                <TableCell key={field.name}>
+                                    {renderInputField(field, newEntry[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, [field.name]: val }))}
+                                </TableCell>
+                                ))}
+                                <TableCell>
+                                <Button onClick={handleAddEntry} size="sm">
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add
+                                </Button>
+                                </TableCell>
+                            </TableRow>
+                            
+                            {/* Existing Entries */}
+                            {entries.map((entry) => (
+                                <TableRow key={entry.id}>
+                                    {form.fields.map((field) => {
+                                        const isEditingThisRow = editingEntryId === entry.id;
+                                        return (
+                                            <TableCell key={field.name} className='align-top'>
+                                                {isEditingThisRow ? (
+                                                    renderInputField(field, editingEntryData[field.name], (val) => setEditingEntryData({...editingEntryData, [field.name]: val}))
+                                                ) : (
+                                                    <div className='text-sm'>{renderDisplayValue(field, entry.data[field.name])}</div>
+                                                )}
+                                            </TableCell>
+                                        )
+                                    })}
+                                <TableCell className="flex gap-1 align-top">
+                                    {editingEntryId === entry.id ? (
+                                        <>
+                                            <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
+                                                <Save className="h-4 w-4 text-green-600" />
+                                            </Button>
+                                            <Button onClick={cancelEditing} size="icon" variant="ghost">
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Button onClick={() => startEditing(entry)} size="icon" variant="ghost">
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button onClick={() => setEntryToDelete(entry)} size="icon" variant="ghost">
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </>
+                                    )}
+                                </TableCell>
+                                </TableRow>
+                            ))}
+                            </TableBody>
+                        </Table>
+                        {entries.length === 0 && (
+                            <p className="text-center text-muted-foreground mt-8">No entries for this form yet.</p>
+                        )}
+                    </ScrollArea>
+                </div>
+            </ScrollArea>
+        </div>
       </SheetContent>
     </Sheet>
     <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
@@ -342,3 +344,5 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     </>
   );
 }
+
+    
