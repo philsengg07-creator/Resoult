@@ -1,0 +1,152 @@
+
+'use client';
+
+import { useEffect } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PlusCircle, Trash2 } from 'lucide-react';
+import { type CustomForm } from '@/types';
+
+const fieldSchema = z.object({
+  name: z.string().min(1, 'Field name is required.'),
+  type: z.enum(['text', 'textarea']),
+});
+
+const formSchema = z.object({
+  title: z.string().min(2, 'Title is required.'),
+  fields: z.array(fieldSchema).min(1, 'At least one field is required.'),
+});
+
+type FormBuilderValues = z.infer<typeof formSchema>;
+
+interface CustomFormDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (values: Omit<CustomForm, 'id'>) => void;
+  editingForm: CustomForm | null;
+}
+
+export function CustomFormDialog({ isOpen, onOpenChange, onSubmit, editingForm }: CustomFormDialogProps) {
+  const form = useForm<FormBuilderValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      fields: [{ name: '', type: 'text' }],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'fields',
+  });
+
+  useEffect(() => {
+    if (editingForm) {
+      form.reset({
+        title: editingForm.title,
+        fields: editingForm.fields,
+      });
+    } else {
+      form.reset({
+        title: '',
+        fields: [{ name: '', type: 'text' }],
+      });
+    }
+  }, [editingForm, form, isOpen]);
+
+  const handleFormSubmit = (values: FormBuilderValues) => {
+    onSubmit(values);
+    form.reset();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>{editingForm ? 'Edit Form' : 'Create New Form'}</DialogTitle>
+          <DialogDescription>
+            {editingForm ? 'Modify the details of your form.' : 'Define the structure of your new custom form.'}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Form Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Server Credentials" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div>
+              <FormLabel>Fields</FormLabel>
+              <div className="space-y-4 mt-2">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="flex items-end gap-2 p-3 border rounded-md">
+                    <FormField
+                      control={form.control}
+                      name={`fields.${index}.name`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel className="text-xs">Field Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder={`Field ${index + 1}`} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`fields.${index}.type`}
+                      render={({ field }) => (
+                        <FormItem>
+                           <FormLabel className="text-xs">Field Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className='w-[120px]'>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="textarea">Textarea</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+                 <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', type: 'text' })} className="mt-4">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Field
+                </Button>
+            </div>
+            
+            <DialogFooter>
+              <Button type="submit">{editingForm ? 'Save Changes' : 'Create Form'}</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

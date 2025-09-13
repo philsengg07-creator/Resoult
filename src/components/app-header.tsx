@@ -27,6 +27,7 @@ export function AppHeader() {
     if (pathname.startsWith('/tickets/')) return 'Ticket Details';
     if (pathname.startsWith('/tickets')) return 'All Tickets';
     if (pathname.startsWith('/renewals')) return 'Renewals';
+    if (pathname.startsWith('/details')) return 'Details';
     return user.role === 'Admin' ? 'Admin Dashboard' : 'Employee Dashboard';
   };
   

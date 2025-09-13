@@ -1,95 +1,87 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { database } from '@/lib/firebase';
-import { ref, onValue, set, push, remove } from 'firebase/database';
+import { ref, onValue, set, push, remove, off } from 'firebase/database';
 import { useAuth } from './use-auth';
 
-// This is the user ID for the shared space for employees.
-// It matches the path in the security rules.
 const EMPLOYEE_SHARED_ID = 'employee_shared';
+const ADMIN_UID = 'Pb2Pgfb4EiXMGLrNV1y24i3qa6C3'; 
 
 export function useDatabaseList<T extends { id: string }>(path: string) {
   const { user, firebaseUser, loading: authLoading } = useAuth();
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const currentUserId = useMemo(() => firebaseUser?.uid, [firebaseUser]);
+
   useEffect(() => {
-    if (authLoading || !firebaseUser) {
-      if(!authLoading) setLoading(false);
+    if (authLoading || !currentUserId) {
+      if (!authLoading) setLoading(false);
       return;
     }
     setLoading(true);
 
     const isAdmin = user?.role === 'Admin';
-    const adminId = firebaseUser?.uid;
+    const sharedAdminPaths = ['tickets', 'renewals', 'customForms', 'formEntries'];
 
-    const unsubscribes: (() => void)[] = [];
-
-    const handleData = (snapshot: any, pathPrefix: string) => {
-      const val = snapshot.val();
-      const list: T[] = val ? Object.keys(val).map(key => ({ ...val[key], id: key, __pathPrefix: pathPrefix } as any)) : [];
-      
-      setData(currentData => {
-        // Filter out old data from the same path, then merge
-        const otherData = currentData.filter(item => (item as any).__pathPrefix !== pathPrefix);
-        return [...otherData, ...list];
-      });
-    };
-
-    if (isAdmin && adminId) {
-      // Admin: Listen to their own path AND the shared employee path
-      setData([]); // Reset data on path change
-      let adminDataLoaded = false;
-      let employeeDataLoaded = false;
-      const checkLoadingDone = () => {
-        if(adminDataLoaded && employeeDataLoaded) {
-          setLoading(false);
-        }
+    let dataPath: string | null = null;
+    
+    if (isAdmin) {
+      // Admins read from the central admin UID for shared paths, and their own UID for others (like notifications)
+      if (sharedAdminPaths.includes(path)) {
+        dataPath = `data/${ADMIN_UID}/${path}`;
+      } else {
+        dataPath = `data/${currentUserId}/${path}`;
       }
-
-      const adminPath = `data/${adminId}/${path}`;
-      const onAdminValue = onValue(ref(database, adminPath), (snapshot) => {
-        handleData(snapshot, adminId);
-        adminDataLoaded = true;
-        checkLoadingDone();
-      }, () => { adminDataLoaded = true; checkLoadingDone(); });
-      unsubscribes.push(onAdminValue);
-      
-      const employeePath = `data/${EMPLOYEE_SHARED_ID}/${path}`;
-      const onEmployeeValue = onValue(ref(database, employeePath), (snapshot) => {
-        handleData(snapshot, EMPLOYEE_SHARED_ID);
-        employeeDataLoaded = true;
-        checkLoadingDone();
-      }, () => { employeeDataLoaded = true; checkLoadingDone(); });
-      unsubscribes.push(onEmployeeValue);
-
-    } else if (!isAdmin && user) {
-      // Employee: Listen only to shared path
-      setData([]); // Reset data on path change
-      const employeePath = `data/${EMPLOYEE_SHARED_ID}/${path}`;
-      const onEmployeeValue = onValue(ref(database, employeePath), (snapshot) => {
-        handleData(snapshot, EMPLOYEE_SHARED_ID);
-        setLoading(false);
-      }, () => setLoading(false));
-      unsubscribes.push(onEmployeeValue);
-
-    } else if (!authLoading) {
-      setLoading(false);
+    } else {
+      // Employees only access their own user-specific data or the shared space for *creating* tickets.
+      // For reading, they should only access their own notifications etc.
+      // This logic prevents employees from trying to read admin-only paths like renewals/customForms.
+      if (path === 'notifications') {
+         dataPath = `data/${currentUserId}/${path}`;
+      } else if (path !== 'renewals' && path !== 'customForms' && path !== 'formEntries') {
+         // Fallback for any other potential shared read paths for employees (currently none)
+         dataPath = `data/${EMPLOYEE_SHARED_ID}/${path}`;
+      }
     }
 
-    return () => unsubscribes.forEach(unsub => unsub());
-  }, [path, authLoading, user, firebaseUser]);
+    if (!dataPath) {
+      setLoading(false);
+      setData([]);
+      return; // If no valid path, do nothing.
+    }
+
+    const dataRef = ref(database, dataPath);
+    const unsubscribe = onValue(dataRef, (snapshot) => {
+      const val = snapshot.val();
+      const list: T[] = val ? Object.keys(val).map(key => ({ ...val[key], id: key })) : [];
+      setData(list);
+      setLoading(false);
+    }, (error) => {
+      console.error(`Firebase read failed for path: ${dataPath}`, error);
+      setLoading(false);
+      setData([]);
+    });
+
+    return () => {
+        off(dataRef);
+    };
+  }, [path, authLoading, user, currentUserId]);
 
   const add = (item: Omit<T, 'id'>): string => {
-    if (!firebaseUser) throw new Error('User not authenticated');
-    
+    if (!currentUserId) throw new Error('User not authenticated');
+
+    const sharedWritePaths = ['tickets', 'renewals', 'customForms', 'formEntries'];
     let writePath;
-    if (user?.role === 'Admin') {
-      writePath = `data/${firebaseUser.uid}/${path}`;
+
+    // Tickets are written by employees to the admin space.
+    // Admin-only data is also written to the admin space.
+    if (sharedWritePaths.includes(path)) {
+        writePath = `data/${ADMIN_UID}/${path}`;
     } else {
-      // Employees (anonymous or otherwise) write to the shared space
-      writePath = `data/${EMPLOYEE_SHARED_ID}/${path}`;
+        // User-specific data (like notifications) is written to the user's own space.
+        writePath = `data/${currentUserId}/${path}`;
     }
     
     const dataRef = ref(database, writePath);
@@ -99,30 +91,40 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
   };
 
   const update = (id: string, item: Partial<T>) => {
-    if (!firebaseUser) throw new Error('User not authenticated');
+    if (!currentUserId) throw new Error('User not authenticated');
     
     const originalItem = data.find(d => d.id === id);
     if (!originalItem) throw new Error(`Item with id ${id} not found.`);
 
-    const itemPathId = (originalItem as any)?.__pathPrefix;
-    if (!itemPathId) throw new Error('Cannot determine item path for update.');
+    const sharedWritePaths = ['tickets', 'renewals', 'customForms', 'formEntries'];
+    let writePath;
+     if (sharedWritePaths.includes(path)) {
+        writePath = `data/${ADMIN_UID}/${path}/${id}`;
+    } else {
+        writePath = `data/${currentUserId}/${path}/${id}`;
+    }
     
-    const itemRef = ref(database, `data/${itemPathId}/${path}/${id}`);
+    const itemRef = ref(database, writePath);
     const { id: _, ...rest } = item as any;
     const currentItem = data.find(d => d.id === id);
     set(itemRef, { ...currentItem, ...rest });
   };
   
   const removeById = (id: string) => {
-    if (!firebaseUser) throw new Error('User not authenticated');
+    if (!currentUserId) throw new Error('User not authenticated');
     
     const originalItem = data.find(d => d.id === id);
     if (!originalItem) throw new Error(`Item with id ${id} not found.`);
     
-    const itemPathId = (originalItem as any)?.__pathPrefix;
-    if (!itemPathId) throw new Error('Cannot determine item path for remove.');
+    const sharedWritePaths = ['tickets', 'renewals', 'customForms', 'formEntries'];
+    let writePath;
+     if (sharedWritePaths.includes(path)) {
+        writePath = `data/${ADMIN_UID}/${path}/${id}`;
+    } else {
+        writePath = `data/${currentUserId}/${path}/${id}`;
+    }
     
-    const itemRef = ref(database, `data/${itemPathId}/${path}/${id}`);
+    const itemRef = ref(database, writePath);
     remove(itemRef);
   };
 

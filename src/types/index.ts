@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export type TicketStatus = 'Unopened' | 'Open' | 'In Progress' | 'Closed';
@@ -52,3 +53,22 @@ export const PushNotificationInputSchema = z.object({
   body: z.string().describe('The body content of the push notification.'),
 });
 export type PushNotificationInput = z.infer<typeof PushNotificationInputSchema>;
+
+
+// Types for Custom Encrypted Forms
+export interface CustomFormField {
+    name: string;
+    type: 'text' | 'textarea';
+}
+
+export interface CustomForm {
+    id: string;
+    title: string;
+    fields: CustomFormField[];
+}
+
+export interface FormEntry {
+    id: string;
+    formId: string;
+    data: Record<string, string>; // Encrypted key-value pairs
+}
