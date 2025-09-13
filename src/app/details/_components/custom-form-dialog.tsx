@@ -38,69 +38,63 @@ function SubFieldsArray({ control, nestIndex }: { control: Control<FormBuilderVa
   return (
     <div className="pl-4 mt-4 space-y-3">
         <Label className="text-xs font-semibold">Sub-fields</Label>
-        <div className="relative">
-            <ScrollArea className="w-full whitespace-nowrap rounded-md">
-                <div className="flex w-max space-x-4 p-2">
-                    {fields.map((item, k) => (
-                        <div key={item.id} className="flex flex-col gap-2 p-3 border rounded-md bg-muted/50 w-[300px]">
-                            <FormField
-                                control={control}
-                                name={`fields.${nestIndex}.fields.${k}.name`}
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-xs">Sub-field Name</FormLabel>
-                                    <FormControl>
-                                    <Input placeholder={`Sub-field ${k + 1}`} {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={control}
-                                name={`fields.${nestIndex}.fields.${k}.type`}
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-xs">Sub-field Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                        <SelectValue placeholder="Select type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="text">Text</SelectItem>
-                                        <SelectItem value="textarea">Textarea</SelectItem>
-                                        <SelectItem value="date">Date</SelectItem>
-                                        <SelectItem value="time">Time</SelectItem>
-                                        <SelectItem value="datetime">Date & Time</SelectItem>
-                                        <SelectItem value="boolean">Yes/No</SelectItem>
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                             <Button type="button" variant="destructive" size="sm" onClick={() => remove(k)} className="mt-1">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Remove
-                            </Button>
-                        </div>
-                    ))}
-                    <div className="flex items-center">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => append({ name: '', type: 'text' })}
-                            className="h-full"
-                        >
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Add Sub-field
-                        </Button>
+        <div className="space-y-4">
+            {fields.map((item, k) => (
+                <div key={item.id} className="flex items-end gap-2 p-3 border rounded-md bg-muted/50">
+                    <div className='flex-grow space-y-2'>
+                        <FormField
+                            control={control}
+                            name={`fields.${nestIndex}.fields.${k}.name`}
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs">Sub-field Name</FormLabel>
+                                <FormControl>
+                                <Input placeholder={`Sub-field ${k + 1}`} {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={control}
+                            name={`fields.${nestIndex}.fields.${k}.type`}
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs">Sub-field Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="text">Text</SelectItem>
+                                    <SelectItem value="textarea">Textarea</SelectItem>
+                                    <SelectItem value="date">Date</SelectItem>
+                                    <SelectItem value="time">Time</SelectItem>
+                                    <SelectItem value="datetime">Date & Time</SelectItem>
+                                    <SelectItem value="boolean">Yes/No</SelectItem>
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                     </div>
+                     <Button type="button" variant="destructive" size="icon" onClick={() => remove(k)} className="shrink-0">
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
-            </ScrollArea>
+            ))}
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ name: '', type: 'text' })}
+            >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Sub-field
+            </Button>
         </div>
     </div>
   );
