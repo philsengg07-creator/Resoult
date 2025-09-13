@@ -66,6 +66,7 @@ export default function RenewalsPage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | undefined>();
 
   const form = useForm<RenewalFormValues>({
     resolver: zodResolver(renewalSchema),
@@ -76,11 +77,15 @@ export default function RenewalsPage() {
     },
   });
   
-  const attachmentPreview = form.watch('attachment');
+  const attachmentValue = form.watch('attachment');
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    setAttachmentPreview(attachmentValue);
+  }, [attachmentValue]);
 
   useEffect(() => {
     if (isClient && !authLoading) {
@@ -443,3 +448,5 @@ export default function RenewalsPage() {
     </div>
   );
 }
+
+    
