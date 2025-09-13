@@ -241,7 +241,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   return (
     <>
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-full w-full md:w-3/4 lg:w-2/3 p-0 flex flex-col max-h-[90svh]">
+      <SheetContent className="w-full sm:max-w-[90%] p-0 flex flex-col max-h-[90svh]">
         <SheetHeader className="p-6 pb-4 border-b">
           <SheetTitle>Entries for: {form.title}</SheetTitle>
           <SheetDescription>
@@ -342,3 +342,5 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     </>
   );
 }
+
+    
