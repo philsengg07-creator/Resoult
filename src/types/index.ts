@@ -58,9 +58,12 @@ export type PushNotificationInput = z.infer<typeof PushNotificationInputSchema>;
 
 
 // Types for Custom Encrypted Forms
+export const CustomFormFieldTypeSchema = z.enum(['text', 'textarea', 'date', 'time', 'datetime', 'boolean']);
+export type CustomFormFieldType = z.infer<typeof CustomFormFieldTypeSchema>;
+
 export interface CustomFormField {
     name: string;
-    type: 'text' | 'textarea';
+    type: CustomFormFieldType;
 }
 
 export interface CustomForm {

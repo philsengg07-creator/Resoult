@@ -11,11 +11,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
-import { type CustomForm } from '@/types';
+import { type CustomForm, CustomFormFieldTypeSchema } from '@/types';
 
 const fieldSchema = z.object({
   name: z.string().min(1, 'Field name is required.'),
-  type: z.enum(['text', 'textarea']),
+  type: CustomFormFieldTypeSchema,
 });
 
 const formSchema = z.object({
@@ -116,13 +116,17 @@ export function CustomFormDialog({ isOpen, onOpenChange, onSubmit, editingForm }
                            <FormLabel className="text-xs">Field Type</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className='w-[120px]'>
+                              <SelectTrigger className='w-[140px]'>
                                 <SelectValue placeholder="Select type" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="text">Text</SelectItem>
                               <SelectItem value="textarea">Textarea</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="time">Time</SelectItem>
+                              <SelectItem value="datetime">Date & Time</SelectItem>
+                              <SelectItem value="boolean">Yes/No</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />

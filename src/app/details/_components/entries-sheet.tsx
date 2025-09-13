@@ -2,14 +2,21 @@
 'use client';
 
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Trash2, Edit, Save, X } from 'lucide-react';
-import { type CustomForm, type FormEntry } from '@/types';
+import { type CustomForm, type FormEntry, type CustomFormField } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface EntriesSheetProps {
   isOpen: boolean;
@@ -25,17 +32,31 @@ interface EntriesSheetProps {
 
 export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt, decrypt }: EntriesSheetProps) {
   const { toast } = useToast();
-  const [newEntry, setNewEntry] = useState<Record<string, string>>({});
+  const [newEntry, setNewEntry] = useState<Record<string, any>>({});
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [editingEntryData, setEditingEntryData] = useState<Record<string, string>>({});
+  const [editingEntryData, setEditingEntryData] = useState<Record<string, any>>({});
+
+  const getInitialValue = (type: CustomFormField['type']) => {
+    switch (type) {
+      case 'boolean': return false;
+      case 'date':
+      case 'datetime':
+      case 'time':
+      case 'textarea':
+      case 'text':
+      default: return '';
+    }
+  };
 
   const handleAddEntry = () => {
-    if (Object.values(newEntry).some(v => !v)) {
-      toast({ variant: 'destructive', title: 'Error', description: 'All fields are required for a new entry.' });
-      return;
+    for (const field of form.fields) {
+      if (field.type !== 'boolean' && !newEntry[field.name]) {
+        toast({ variant: 'destructive', title: 'Error', description: `Field "${field.name}" is required.` });
+        return;
+      }
     }
     const encryptedData = Object.fromEntries(
-      Object.entries(newEntry).map(([key, value]) => [key, encrypt(value)])
+      Object.entries(newEntry).map(([key, value]) => [key, encrypt(String(value))])
     );
     onAddEntry({ formId: form.id, data: encryptedData });
     setNewEntry({});
@@ -44,12 +65,14 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   
   const handleUpdateEntry = () => {
     if (!editingEntryId) return;
-     if (Object.values(editingEntryData).some(v => !v)) {
-      toast({ variant: 'destructive', title: 'Error', description: 'All fields are required.' });
-      return;
+    for (const field of form.fields) {
+      if (field.type !== 'boolean' && !editingEntryData[field.name]) {
+        toast({ variant: 'destructive', title: 'Error', description: `Field "${field.name}" is required.` });
+        return;
+      }
     }
     const encryptedData = Object.fromEntries(
-        Object.entries(editingEntryData).map(([key, value]) => [key, encrypt(value)])
+        Object.entries(editingEntryData).map(([key, value]) => [key, encrypt(String(value))])
     );
     onUpdateEntry(editingEntryId, { data: encryptedData });
     setEditingEntryId(null);
@@ -60,7 +83,14 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   const startEditing = (entry: FormEntry) => {
     setEditingEntryId(entry.id);
     const decryptedData = Object.fromEntries(
-        Object.entries(entry.data).map(([key, value]) => [key, decrypt(value)])
+        Object.entries(entry.data).map(([key, value]) => {
+            const field = form.fields.find(f => f.name === key);
+            let decryptedValue: any = decrypt(value);
+            if (field?.type === 'boolean') {
+              decryptedValue = decryptedValue === 'true';
+            }
+            return [key, decryptedValue];
+        })
     );
     setEditingEntryData(decryptedData);
   }
@@ -69,6 +99,58 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
       setEditingEntryId(null);
       setEditingEntryData({});
   }
+
+  const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
+    switch (field.type) {
+      case 'textarea':
+        return <Textarea placeholder={`New ${field.name}`} value={value || ''} onChange={(e) => onChange(e.target.value)} rows={1} />;
+      case 'date':
+        return (
+          <Popover>
+            <PopoverTrigger asChild>
+                <Button variant={'outline'} className={cn('w-full justify-start text-left font-normal', !value && 'text-muted-foreground')}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {value ? format(new Date(value), 'PPP') : <span>Pick a date</span>}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar mode="single" selected={value ? new Date(value) : undefined} onSelect={(date) => onChange(date?.toISOString())} initialFocus />
+            </PopoverContent>
+          </Popover>
+        );
+      case 'time':
+        return <Input type="time" value={value || ''} onChange={(e) => onChange(e.target.value)} />;
+      case 'datetime':
+        return <Input type="datetime-local" value={value || ''} onChange={(e) => onChange(e.target.value)} />;
+      case 'boolean':
+        return (
+          <div className="flex items-center space-x-2">
+            <Switch id={`${field.name}-switch`} checked={value || false} onCheckedChange={onChange} />
+            <Label htmlFor={`${field.name}-switch`}>{value ? 'Yes' : 'No'}</Label>
+          </div>
+        );
+      case 'text':
+      default:
+        return <Input placeholder={`New ${field.name}`} value={value || ''} onChange={(e) => onChange(e.target.value)} />;
+    }
+  }
+
+   const renderDisplayValue = (field: CustomFormField, encryptedValue: string) => {
+    const decrypted = decrypt(encryptedValue);
+    switch (field.type) {
+        case 'boolean':
+            return decrypted === 'true' ? 'Yes' : 'No';
+        case 'date':
+            return format(new Date(decrypted), 'PPP');
+        case 'datetime':
+            return format(new Date(decrypted), 'Pp');
+        case 'time':
+        case 'text':
+        case 'textarea':
+        default:
+            return decrypted;
+    }
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -94,20 +176,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
               <TableRow>
                 {form.fields.map((field) => (
                   <TableCell key={field.name}>
-                    {field.type === 'textarea' ? (
-                      <Textarea
-                        placeholder={`New ${field.name}`}
-                        value={newEntry[field.name] || ''}
-                        onChange={(e) => setNewEntry({ ...newEntry, [field.name]: e.target.value })}
-                        rows={1}
-                      />
-                    ) : (
-                      <Input
-                        placeholder={`New ${field.name}`}
-                        value={newEntry[field.name] || ''}
-                        onChange={(e) => setNewEntry({ ...newEntry, [field.name]: e.target.value })}
-                      />
-                    )}
+                    {renderInputField(field, newEntry[field.name] ?? getInitialValue(field.type), (val) => setNewEntry({ ...newEntry, [field.name]: val }))}
                   </TableCell>
                 ))}
                 <TableCell>
@@ -122,27 +191,12 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
                 <TableRow key={entry.id}>
                     {form.fields.map((field) => {
                         const isEditingThisRow = editingEntryId === entry.id;
-                        const cellValue = isEditingThisRow 
-                            ? (editingEntryData[field.name] || '')
-                            : (entry.data[field.name] ? decrypt(entry.data[field.name]) : 'N/A');
-
                         return (
                              <TableCell key={field.name}>
                                 {isEditingThisRow ? (
-                                     field.type === 'textarea' ? (
-                                        <Textarea
-                                            value={cellValue}
-                                            onChange={(e) => setEditingEntryData({...editingEntryData, [field.name]: e.target.value})}
-                                            rows={1}
-                                        />
-                                    ) : (
-                                        <Input
-                                            value={cellValue}
-                                            onChange={(e) => setEditingEntryData({...editingEntryData, [field.name]: e.target.value})}
-                                        />
-                                    )
+                                    renderInputField(field, editingEntryData[field.name], (val) => setEditingEntryData({...editingEntryData, [field.name]: val}))
                                 ) : (
-                                    <span className='text-sm'>{cellValue}</span>
+                                    <span className='text-sm'>{entry.data[field.name] ? renderDisplayValue(field, entry.data[field.name]) : 'N/A'}</span>
                                 )}
                             </TableCell>
                         )
@@ -180,4 +234,3 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     </Sheet>
   );
 }
-
