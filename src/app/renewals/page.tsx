@@ -133,8 +133,9 @@ export default function RenewalsPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAttachmentPreview(reader.result as string);
-        form.setValue('attachment', reader.result as string);
+        const result = reader.result as string;
+        setAttachmentPreview(result);
+        form.setValue('attachment', result);
       };
       reader.readAsDataURL(file);
     }
@@ -457,14 +458,14 @@ export default function RenewalsPage() {
                     <DialogTitle>Attachment Viewer</DialogTitle>
                  </DialogHeader>
                  {viewingAttachment && (
-                    <div className="relative w-full aspect-video rounded-md overflow-hidden border mt-4">
-                        <Image src={viewingAttachment} alt="Attachment" layout="fill" objectFit="contain" />
-                    </div>
+                    <ScrollArea className="max-h-[70vh] w-full rounded-md border mt-4">
+                        <div className="relative w-full">
+                           <Image src={viewingAttachment} alt="Attachment" width={1920} height={1080} className="w-full h-auto object-contain" />
+                        </div>
+                    </ScrollArea>
                  )}
             </DialogContent>
         </Dialog>
     </div>
   );
 }
-
-    
