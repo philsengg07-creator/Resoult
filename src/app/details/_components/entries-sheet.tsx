@@ -161,14 +161,16 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
     if (field.type === 'group') {
         return (
-            <div className='space-y-2 p-2 border rounded-md ml-2'>
-                {field.fields?.map(subField => (
-                    <div key={subField.name} className='flex items-center gap-2'>
-                         <Label className="w-24 text-xs">{subField.name}</Label>
-                        {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
-                    </div>
-                ))}
-            </div>
+             <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                <div className="flex w-max space-x-2 p-2">
+                    {field.fields?.map(subField => (
+                        <div key={subField.name} className='space-y-1 w-[150px]'>
+                             <Label className="text-xs">{subField.name}</Label>
+                            {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
         )
     }
 
@@ -211,13 +213,16 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     if(field.type === 'group') {
         const groupData = decryptObject(value, decrypt);
         return (
-            <div className='space-y-1 text-xs'>
-                {field.fields?.map(subField => (
-                    <div key={subField.name}>
-                        <strong>{subField.name}:</strong> {renderDisplayValue(subField, groupData[subField.name] ?? 'N/A')}
-                    </div>
-                ))}
-            </div>
+            <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex w-max space-x-4">
+                    {field.fields?.map(subField => (
+                        <div key={subField.name} className='text-xs'>
+                            <strong className="font-semibold">{subField.name}:</strong>
+                            <div className="text-muted-foreground mt-1">{renderDisplayValue(subField, groupData[subField.name] ?? 'N/A')}</div>
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
         )
     }
     const decrypted = typeof value === 'string' ? decrypt(value) : String(value);
@@ -339,3 +344,4 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     
 
     
+
