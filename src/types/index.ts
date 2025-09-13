@@ -28,6 +28,7 @@ export interface Renewal {
   purchaseDate: string;
   renewalDate: string;
   notes?: string;
+  attachment?: string; // base64 data URI
 }
 
 export interface AppNotification {
@@ -72,3 +73,5 @@ export interface FormEntry {
     formId: string;
     data: Record<string, string>; // Encrypted key-value pairs
 }
+
+    
