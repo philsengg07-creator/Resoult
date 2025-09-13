@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useDatabaseList } from '@/hooks/use-database-list';
 import { type TrackedItem, type TrackedItemType } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -31,9 +31,9 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogFooter,
 } from '@/components/ui/alert-dialog';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
