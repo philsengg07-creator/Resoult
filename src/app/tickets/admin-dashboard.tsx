@@ -2,7 +2,7 @@
 'use client';
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { type Ticket, type Renewal } from '@/types';
+import { type Ticket, type TrackedItem } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 
 interface AdminDashboardProps {
   tickets: Ticket[];
-  renewals: Renewal[];
+  renewals: TrackedItem[];
 }
 
 const chartConfig = {
@@ -57,7 +57,7 @@ export function AdminDashboard({ tickets, renewals }: AdminDashboardProps) {
     return renewals
       .map(renewal => ({
         ...renewal,
-        daysLeft: differenceInDays(new Date(renewal.renewalDate), new Date()),
+        daysLeft: differenceInDays(new Date(renewal.expiryDate), new Date()),
       }))
       .filter(renewal => renewal.daysLeft >= 0 && renewal.daysLeft <= 10)
       .sort((a, b) => a.daysLeft - b.daysLeft);
@@ -129,8 +129,8 @@ export function AdminDashboard({ tickets, renewals }: AdminDashboardProps) {
             <Card className="lg:col-span-3">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Upcoming Renewals</CardTitle>
-                        <CardDescription>Items with warranty ending in the next 10 days.</CardDescription>
+                        <CardTitle>Upcoming Expiries</CardTitle>
+                        <CardDescription>Items with warranty/renewal ending in 10 days.</CardDescription>
                     </div>
                      <Button asChild variant="outline" size="sm">
                         <Link href="/renewals">View All</Link>
@@ -143,7 +143,7 @@ export function AdminDashboard({ tickets, renewals }: AdminDashboardProps) {
                         <li key={renewal.id} className="flex items-center justify-between text-sm p-2 rounded-md hover:bg-muted/50">
                             <div>
                                 <p className="font-medium">{renewal.itemName}</p>
-                                <p className="text-xs text-muted-foreground">{format(new Date(renewal.renewalDate), 'PPP')}</p>
+                                <p className="text-xs text-muted-foreground">{format(new Date(renewal.expiryDate), 'PPP')}</p>
                             </div>
                             <span className={`font-semibold ${renewal.daysLeft < 3 ? 'text-destructive' : ''}`}>
                                 {renewal.daysLeft === 0 ? 'Today' : `${renewal.daysLeft}d left`}

@@ -22,11 +22,16 @@ export interface User {
   email?: string;
 }
 
-export interface Renewal {
+export type TrackedItemType = 'Warranty' | 'Renewal';
+
+export interface TrackedItem {
   id: string;
   itemName: string;
+  type: TrackedItemType;
   purchaseDate: string;
-  renewalDate: string;
+  expiryDate: string;
+  amount?: number;
+  vendor?: string;
   notes?: string;
   attachment?: string; // base64 data URI
   attachmentName?: string;
@@ -77,7 +82,3 @@ export interface FormEntry {
     formId: string;
     data: Record<string, string>; // Encrypted key-value pairs
 }
-
-    
-
-    

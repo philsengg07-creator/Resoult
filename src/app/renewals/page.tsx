@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useDatabaseList } from '@/hooks/use-database-list';
-import { type Renewal } from '@/types';
+import { type TrackedItem, type TrackedItemType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -22,7 +22,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
@@ -52,12 +51,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const renewalSchema = z.object({
   itemName: z.string().min(2, 'Item name is required.'),
+  type: z.enum(['Warranty', 'Renewal']),
   purchaseDate: z.date({ required_error: 'Purchase date is required.' }),
-  renewalDate: z.date({ required_error: 'Renewal date is required.' }),
+  expiryDate: z.date({ required_error: 'Expiry date is required.' }),
+  amount: z.coerce.number().optional(),
+  vendor: z.string().optional(),
   notes: z.string().optional(),
   attachment: z.string().optional(),
   attachmentName: z.string().optional(),
@@ -69,9 +73,9 @@ export default function RenewalsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const { data: renewals, add: addRenewal, update: updateRenewal, removeById: deleteRenewal, loading: renewalsLoading } = useDatabaseList<Renewal>('renewals');
+  const { data: renewals, add: addRenewal, update: updateRenewal, removeById: deleteRenewal, loading: renewalsLoading } = useDatabaseList<TrackedItem>('renewals');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingRenewal, setEditingRenewal] = useState<Renewal | null>(null);
+  const [editingRenewal, setEditingRenewal] = useState<TrackedItem | null>(null);
   const { toast } = useToast();
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -80,14 +84,16 @@ export default function RenewalsPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | undefined>();
   const [viewingAttachment, setViewingAttachment] = useState<{url: string; name?: string;} | null>(null);
-  const [renewalToDelete, setRenewalToDelete] = useState<Renewal | null>(null);
+  const [renewalToDelete, setRenewalToDelete] = useState<TrackedItem | null>(null);
 
 
   const form = useForm<RenewalFormValues>({
     resolver: zodResolver(renewalSchema),
     defaultValues: {
       itemName: '',
+      type: 'Warranty',
       notes: '',
+      vendor: '',
       attachment: '',
       attachmentName: '',
     },
@@ -115,8 +121,11 @@ export default function RenewalsPage() {
     if (editingRenewal) {
       form.reset({
         itemName: editingRenewal.itemName,
+        type: editingRenewal.type,
         purchaseDate: new Date(editingRenewal.purchaseDate),
-        renewalDate: new Date(editingRenewal.renewalDate),
+        expiryDate: new Date(editingRenewal.expiryDate),
+        amount: editingRenewal.amount,
+        vendor: editingRenewal.vendor,
         notes: editingRenewal.notes || '',
         attachment: editingRenewal.attachment || '',
         attachmentName: editingRenewal.attachmentName || '',
@@ -124,8 +133,11 @@ export default function RenewalsPage() {
     } else {
       form.reset({
         itemName: '',
+        type: 'Warranty',
         purchaseDate: undefined,
-        renewalDate: undefined,
+        expiryDate: undefined,
+        amount: undefined,
+        vendor: '',
         notes: '',
         attachment: '',
         attachmentName: '',
@@ -214,18 +226,18 @@ export default function RenewalsPage() {
   }
 
   const onSubmit = (data: RenewalFormValues) => {
-     const renewalData = {
+     const renewalData: Omit<TrackedItem, 'id'> = {
       ...data,
       purchaseDate: data.purchaseDate.toISOString(),
-      renewalDate: data.renewalDate.toISOString(),
+      expiryDate: data.expiryDate.toISOString(),
     };
 
     if (editingRenewal) {
       updateRenewal(editingRenewal.id, renewalData);
-      toast({ title: 'Success', description: 'Renewal item updated.' });
+      toast({ title: 'Success', description: 'Item updated.' });
     } else {
       addRenewal(renewalData);
-      toast({ title: 'Success', description: 'Renewal item added.' });
+      toast({ title: 'Success', description: 'New item added.' });
     }
     
     form.reset();
@@ -233,7 +245,7 @@ export default function RenewalsPage() {
     setIsFormOpen(false);
   };
   
-  const handleOpenDialog = (renewal: Renewal | null) => {
+  const handleOpenDialog = (renewal: TrackedItem | null) => {
     setEditingRenewal(renewal);
     setIsFormOpen(true);
   };
@@ -241,13 +253,13 @@ export default function RenewalsPage() {
   const handleDeleteRenewal = () => {
     if (!renewalToDelete) return;
     deleteRenewal(renewalToDelete.id);
-    toast({ title: 'Success', description: `Renewal item "${renewalToDelete.itemName}" deleted.` });
+    toast({ title: 'Success', description: `Item "${renewalToDelete.itemName}" deleted.` });
     setRenewalToDelete(null);
   };
 
 
-  const getDaysLeft = (renewalDate: string) => {
-    const days = differenceInDays(new Date(renewalDate), new Date());
+  const getDaysLeft = (expiryDate: string) => {
+    const days = differenceInDays(new Date(expiryDate), new Date());
     if (days < 0) return 'Expired';
     if (days === 0) return 'Today';
     return `${days} day(s)`;
@@ -280,7 +292,7 @@ export default function RenewalsPage() {
   }
 
   const sortedRenewals = [...renewals].sort(
-    (a, b) => new Date(a.renewalDate).getTime() - new Date(b.renewalDate).getTime()
+    (a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
   );
 
   return (
@@ -288,7 +300,7 @@ export default function RenewalsPage() {
        <Card>
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
-                <CardTitle>Renewal Management</CardTitle>
+                <CardTitle>Renewals & Warranties</CardTitle>
                 <CardDescription>Track warranty and renewal dates for your items.</CardDescription>
             </div>
             <Button onClick={() => handleOpenDialog(null)}>
@@ -301,8 +313,9 @@ export default function RenewalsPage() {
                 <TableHeader>
                 <TableRow>
                     <TableHead>Item Name</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Purchase Date</TableHead>
-                    <TableHead>Renewal Date</TableHead>
+                    <TableHead>Expiry Date</TableHead>
                     <TableHead>Days Left</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -312,9 +325,10 @@ export default function RenewalsPage() {
                   sortedRenewals.map((renewal) => (
                     <TableRow key={renewal.id}>
                       <TableCell className="font-medium">{renewal.itemName}</TableCell>
+                      <TableCell>{renewal.type}</TableCell>
                       <TableCell>{format(new Date(renewal.purchaseDate), 'PPP')}</TableCell>
-                      <TableCell>{format(new Date(renewal.renewalDate), 'PPP')}</TableCell>
-                      <TableCell>{getDaysLeft(renewal.renewalDate)}</TableCell>
+                      <TableCell>{format(new Date(renewal.expiryDate), 'PPP')}</TableCell>
+                      <TableCell>{getDaysLeft(renewal.expiryDate)}</TableCell>
                        <TableCell className="text-right">
                         {renewal.attachment && (
                           <Button variant="ghost" size="icon" onClick={() => setViewingAttachment({url: renewal.attachment!, name: renewal.attachmentName})}>
@@ -332,8 +346,8 @@ export default function RenewalsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      No renewal items added yet.
+                    <TableCell colSpan={6} className="text-center">
+                      No items added yet.
                     </TableCell>
                   </TableRow>
                 )}
@@ -345,7 +359,7 @@ export default function RenewalsPage() {
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="sm:max-w-md grid-rows-[auto_1fr_auto] p-0 max-h-[90svh]">
                 <DialogHeader className="p-6 pb-0">
-                    <DialogTitle>{editingRenewal ? 'Edit Renewal Item' : 'Add New Renewal Item'}</DialogTitle>
+                    <DialogTitle>{editingRenewal ? 'Edit Item' : 'Add New Item'}</DialogTitle>
                     <DialogDescription>
                        {editingRenewal ? 'Update the details for this item.' : 'Fill in the details below to track a new item.'}
                     </DialogDescription>
@@ -355,18 +369,77 @@ export default function RenewalsPage() {
                         <Form {...form}>
                             <form id="renewal-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <FormField
+                                    control={form.control}
+                                    name="type"
+                                    render={({ field }) => (
+                                        <FormItem className="space-y-3">
+                                        <FormLabel>Type</FormLabel>
+                                        <FormControl>
+                                            <RadioGroup
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                            className="flex space-x-4"
+                                            >
+                                            <FormItem className="flex items-center space-x-2">
+                                                <FormControl>
+                                                <RadioGroupItem value="Warranty" id="r1" />
+                                                </FormControl>
+                                                <FormLabel htmlFor="r1" className="font-normal">Warranty</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2">
+                                                <FormControl>
+                                                <RadioGroupItem value="Renewal" id="r2" />
+                                                </FormControl>
+                                                <FormLabel htmlFor="r2" className="font-normal">Renewal</FormLabel>
+                                            </FormItem>
+                                            </RadioGroup>
+                                        </FormControl>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    />
+
+                                <FormField
                                 control={form.control}
                                 name="itemName"
                                 render={({ field }) => (
                                     <FormItem>
                                     <FormLabel>Item Name</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. Domain SSL Certificate" {...field} />
+                                        <Input placeholder="e.g. Server Hosting" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                     </FormItem>
                                 )}
                                 />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="amount"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Amount</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" placeholder="e.g. 299.99" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="vendor"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Vendor</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="e.g. Cloudways" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                                 <FormField
                                     control={form.control}
                                     name="purchaseDate"
@@ -410,10 +483,10 @@ export default function RenewalsPage() {
                                     />
                                 <FormField
                                     control={form.control}
-                                    name="renewalDate"
+                                    name="expiryDate"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                        <FormLabel>Renewal/Warranty Date</FormLabel>
+                                        <FormLabel>{form.getValues('type')} Date</FormLabel>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                             <FormControl>
@@ -495,7 +568,7 @@ export default function RenewalsPage() {
                     </div>
                 </ScrollArea>
                 <DialogFooter className="p-6 pt-0">
-                    <Button type="submit" form="renewal-form">{editingRenewal ? 'Save Changes' : 'Add Renewal'}</Button>
+                    <Button type="submit" form="renewal-form">{editingRenewal ? 'Save Changes' : 'Add Item'}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -551,20 +624,17 @@ export default function RenewalsPage() {
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete the item "{renewalToDelete?.itemName}".
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setRenewalToDelete(null)}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteRenewal} className="bg-destructive hover:bg-destructive/90">
-                        Delete
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                    </D>
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setRenewalToDelete(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteRenewal} className="bg-destructive hover:bg-destructive/90">
+                    Delete
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-    
-
-    

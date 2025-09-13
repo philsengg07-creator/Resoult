@@ -1,7 +1,7 @@
 
 'use client';
 import { useDatabaseList } from '@/hooks/use-database-list';
-import { type Ticket, type Renewal } from '@/types';
+import { type Ticket, type TrackedItem } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   const { data: tickets, loading: ticketsLoading } = useDatabaseList<Ticket>('tickets');
-  const { data: renewals, loading: renewalsLoading } = useDatabaseList<Renewal>('renewals');
+  const { data: renewals, loading: renewalsLoading } = useDatabaseList<TrackedItem>('renewals');
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
