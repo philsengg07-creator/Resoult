@@ -26,6 +26,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,6 +80,7 @@ export default function RenewalsPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | undefined>();
   const [viewingAttachment, setViewingAttachment] = useState<{url: string; name?: string;} | null>(null);
+  const [renewalToDelete, setRenewalToDelete] = useState<Renewal | null>(null);
 
 
   const form = useForm<RenewalFormValues>({
@@ -226,6 +237,13 @@ export default function RenewalsPage() {
     setEditingRenewal(renewal);
     setIsFormOpen(true);
   };
+  
+  const handleDeleteRenewal = () => {
+    if (!renewalToDelete) return;
+    deleteRenewal(renewalToDelete.id);
+    toast({ title: 'Success', description: `Renewal item "${renewalToDelete.itemName}" deleted.` });
+    setRenewalToDelete(null);
+  };
 
 
   const getDaysLeft = (renewalDate: string) => {
@@ -306,7 +324,7 @@ export default function RenewalsPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(renewal)}>
                             <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteRenewal(renewal.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => setRenewalToDelete(renewal)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
@@ -451,6 +469,7 @@ export default function RenewalsPage() {
                                                    <FileText className="h-6 w-6" />
                                                    <span className='truncate'>{attachmentPreviewInfo.name}</span>
                                                 </div>
+
                                             )}
                                             <Button type="button" size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={removeAttachment}>
                                                 <X className="h-4 w-4" />
@@ -525,8 +544,27 @@ export default function RenewalsPage() {
                  )}
             </DialogContent>
         </Dialog>
+
+        <AlertDialog open={!!renewalToDelete} onOpenChange={() => setRenewalToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the item "{renewalToDelete?.itemName}".
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setRenewalToDelete(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteRenewal} className="bg-destructive hover:bg-destructive/90">
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
+
+    
 
     
