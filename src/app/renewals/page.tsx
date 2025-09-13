@@ -31,7 +31,6 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
@@ -94,6 +93,7 @@ export default function RenewalsPage() {
       type: 'Warranty',
       notes: '',
       vendor: '',
+      amount: undefined,
       attachment: '',
       attachmentName: '',
     },
@@ -124,11 +124,11 @@ export default function RenewalsPage() {
         type: editingRenewal.type,
         purchaseDate: new Date(editingRenewal.purchaseDate),
         expiryDate: new Date(editingRenewal.expiryDate),
-        amount: editingRenewal.amount,
-        vendor: editingRenewal.vendor,
-        notes: editingRenewal.notes || '',
-        attachment: editingRenewal.attachment || '',
-        attachmentName: editingRenewal.attachmentName || '',
+        amount: editingRenewal.amount ?? undefined,
+        vendor: editingRenewal.vendor ?? '',
+        notes: editingRenewal.notes ?? '',
+        attachment: editingRenewal.attachment ?? '',
+        attachmentName: editingRenewal.attachmentName ?? '',
       });
     } else {
       form.reset({
@@ -143,7 +143,7 @@ export default function RenewalsPage() {
         attachmentName: '',
       });
     }
-  }, [editingRenewal, form]);
+  }, [editingRenewal, form, isFormOpen]);
 
 
   useEffect(() => {
@@ -427,7 +427,7 @@ export default function RenewalsPage() {
                                             <FormItem>
                                             <FormLabel>Amount</FormLabel>
                                             <FormControl>
-                                                <Input type="number" placeholder="e.g. 299.99" {...field} />
+                                                <Input type="number" placeholder="e.g. 299.99" {...field} value={field.value ?? ''} />
                                             </FormControl>
                                             <FormMessage />
                                             </FormItem>
@@ -440,7 +440,7 @@ export default function RenewalsPage() {
                                             <FormItem>
                                             <FormLabel>Vendor</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="e.g. Cloudways" {...field} />
+                                                <Input placeholder="e.g. Cloudways" {...field} value={field.value ?? ''} />
                                             </FormControl>
                                             <FormMessage />
                                             </FormItem>
@@ -564,7 +564,7 @@ export default function RenewalsPage() {
                                     <FormItem>
                                     <FormLabel>Notes (optional)</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="e.g. Purchased from ExampleHost" {...field} />
+                                        <Textarea placeholder="e.g. Purchased from ExampleHost" {...field} value={field.value ?? ''} />
                                     </FormControl>
                                     <FormMessage />
                                     </FormItem>
