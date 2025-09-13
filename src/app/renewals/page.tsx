@@ -41,6 +41,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const renewalSchema = z.object({
@@ -219,145 +220,151 @@ export default function RenewalsPage() {
                     Add Item
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-md grid-rows-[auto_1fr_auto] p-0 max-h-[90svh]">
+                <DialogHeader className="p-6 pb-0">
                     <DialogTitle>Add New Renewal Item</DialogTitle>
                     <DialogDescription>
                         Fill in the details below to track a new item.
                     </DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                    control={form.control}
-                    name="itemName"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Item Name</FormLabel>
-                        <FormControl>
-                            <Input placeholder="e.g. Domain SSL Certificate" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="purchaseDate"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                            <FormLabel>Purchase Date</FormLabel>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                    variant={'outline'}
-                                    className={cn(
-                                        'w-full pl-3 text-left font-normal',
-                                        !field.value && 'text-muted-foreground'
-                                    )}
-                                    >
-                                    {field.value ? (
-                                        format(field.value, 'PPP')
-                                    ) : (
-                                        <span>Pick a date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) =>
-                                    date > new Date() || date < new Date('1900-01-01')
-                                    }
-                                    initialFocus
+                <ScrollArea className="h-full">
+                    <div className="p-6">
+                        <Form {...form}>
+                            <form id="add-renewal-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                <FormField
+                                control={form.control}
+                                name="itemName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Item Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g. Domain SSL Certificate" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
                                 />
-                                </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                     <FormField
-                        control={form.control}
-                        name="renewalDate"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                            <FormLabel>Renewal/Warranty Date</FormLabel>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                    variant={'outline'}
-                                    className={cn(
-                                        'w-full pl-3 text-left font-normal',
-                                        !field.value && 'text-muted-foreground'
+                                <FormField
+                                    control={form.control}
+                                    name="purchaseDate"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                        <FormLabel>Purchase Date</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                variant={'outline'}
+                                                className={cn(
+                                                    'w-full pl-3 text-left font-normal',
+                                                    !field.value && 'text-muted-foreground'
+                                                )}
+                                                >
+                                                {field.value ? (
+                                                    format(field.value, 'PPP')
+                                                ) : (
+                                                    <span>Pick a date</span>
+                                                )}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) =>
+                                                date > new Date() || date < new Date('1900-01-01')
+                                                }
+                                                initialFocus
+                                            />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                        </FormItem>
                                     )}
-                                    >
-                                    {field.value ? (
-                                        format(field.value, 'PPP')
-                                    ) : (
-                                        <span>Pick a date</span>
+                                    />
+                                <FormField
+                                    control={form.control}
+                                    name="renewalDate"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                        <FormLabel>Renewal/Warranty Date</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                variant={'outline'}
+                                                className={cn(
+                                                    'w-full pl-3 text-left font-normal',
+                                                    !field.value && 'text-muted-foreground'
+                                                )}
+                                                >
+                                                {field.value ? (
+                                                    format(field.value, 'PPP')
+                                                ) : (
+                                                    <span>Pick a date</span>
+                                                )}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                initialFocus
+                                            />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                        </FormItem>
                                     )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    />
+                                <FormItem>
+                                    <FormLabel>Attachment (optional)</FormLabel>
+                                    <div className="grid grid-cols-2 gap-2">
+                                    <Input id="attachment-upload" type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                                    <Button type="button" variant="outline" onClick={() => document.getElementById('attachment-upload')?.click()}>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Upload
                                     </Button>
-                                </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    initialFocus
+                                    <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}>
+                                        <Camera className="mr-2 h-4 w-4" />
+                                        Capture
+                                    </Button>
+                                    </div>
+                                    {attachmentPreview && (
+                                        <div className="relative mt-2 w-full aspect-video rounded-md overflow-hidden border">
+                                            <Image src={attachmentPreview} alt="Attachment preview" layout="fill" objectFit="contain" />
+                                            <Button type="button" size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={removeAttachment}>
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </FormItem>
+                                <FormField
+                                control={form.control}
+                                name="notes"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Notes (optional)</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g. Purchased from ExampleHost" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
                                 />
-                                </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                     <FormItem>
-                        <FormLabel>Attachment (optional)</FormLabel>
-                        <div className="grid grid-cols-2 gap-2">
-                           <Input id="attachment-upload" type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-                           <Button type="button" variant="outline" onClick={() => document.getElementById('attachment-upload')?.click()}>
-                             <Upload className="mr-2 h-4 w-4" />
-                             Upload
-                           </Button>
-                           <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}>
-                             <Camera className="mr-2 h-4 w-4" />
-                             Capture
-                           </Button>
-                        </div>
-                        {attachmentPreview && (
-                            <div className="relative mt-2 w-full aspect-video rounded-md overflow-hidden border">
-                                <Image src={attachmentPreview} alt="Attachment preview" layout="fill" objectFit="contain" />
-                                <Button type="button" size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={removeAttachment}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        )}
-                    </FormItem>
-                    <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Notes (optional)</FormLabel>
-                        <FormControl>
-                            <Textarea placeholder="e.g. Purchased from ExampleHost" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <Button type="submit">Add Renewal</Button>
-                </form>
-                </Form>
+                            </form>
+                        </Form>
+                    </div>
+                </ScrollArea>
+                <DialogFooter className="p-6 pt-0">
+                    <Button type="submit" form="add-renewal-form">Add Renewal</Button>
+                </DialogFooter>
             </DialogContent>
             </Dialog>
         </CardHeader>
@@ -436,5 +443,3 @@ export default function RenewalsPage() {
     </div>
   );
 }
-
-    
