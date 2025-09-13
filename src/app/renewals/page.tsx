@@ -67,6 +67,8 @@ export default function RenewalsPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | undefined>();
+  const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
+
 
   const form = useForm<RenewalFormValues>({
     resolver: zodResolver(renewalSchema),
@@ -131,6 +133,7 @@ export default function RenewalsPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
+        setAttachmentPreview(reader.result as string);
         form.setValue('attachment', reader.result as string);
       };
       reader.readAsDataURL(file);
@@ -147,6 +150,7 @@ export default function RenewalsPage() {
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUrl = canvas.toDataURL('image/png');
+        setAttachmentPreview(dataUrl);
         form.setValue('attachment', dataUrl);
       }
       setIsCameraOpen(false);
@@ -154,6 +158,7 @@ export default function RenewalsPage() {
   };
   
   const removeAttachment = () => {
+    setAttachmentPreview(undefined);
     form.setValue('attachment', '');
     const fileInput = document.getElementById('attachment-upload') as HTMLInputElement;
     if(fileInput) fileInput.value = '';
@@ -165,11 +170,12 @@ export default function RenewalsPage() {
       purchaseDate: data.purchaseDate.toISOString(),
       renewalDate: data.renewalDate.toISOString(),
       notes: data.notes,
-      attachment: data.attachment,
+      attachment: attachmentPreview,
     };
     addRenewal(newRenewal);
     toast({ title: 'Success', description: 'Renewal item added.' });
     form.reset();
+    setAttachmentPreview(undefined);
     setIsFormOpen(false);
   };
 
@@ -394,10 +400,8 @@ export default function RenewalsPage() {
                       <TableCell>{getDaysLeft(renewal.renewalDate)}</TableCell>
                        <TableCell className="text-right">
                         {renewal.attachment && (
-                          <Button variant="ghost" size="icon" asChild>
-                            <a href={renewal.attachment} target="_blank" rel="noopener noreferrer">
+                          <Button variant="ghost" size="icon" onClick={() => setViewingAttachment(renewal.attachment!)}>
                               <Paperclip className="h-4 w-4" />
-                            </a>
                           </Button>
                         )}
                         <Button variant="ghost" size="icon" onClick={() => deleteRenewal(renewal.id)}>
@@ -443,6 +447,20 @@ export default function RenewalsPage() {
                     </DialogClose>
                     <Button onClick={handleCapturePhoto} disabled={!hasCameraPermission}>Take Photo</Button>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        {/* Attachment Viewer Dialog */}
+        <Dialog open={!!viewingAttachment} onOpenChange={(open) => !open && setViewingAttachment(null)}>
+            <DialogContent className="max-w-3xl">
+                 <DialogHeader>
+                    <DialogTitle>Attachment Viewer</DialogTitle>
+                 </DialogHeader>
+                 {viewingAttachment && (
+                    <div className="relative w-full aspect-video rounded-md overflow-hidden border mt-4">
+                        <Image src={viewingAttachment} alt="Attachment" layout="fill" objectFit="contain" />
+                    </div>
+                 )}
             </DialogContent>
         </Dialog>
     </div>
