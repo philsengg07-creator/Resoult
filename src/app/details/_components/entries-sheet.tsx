@@ -211,11 +211,11 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     if(field.type === 'group') {
         const groupData = decryptObject(value, decrypt);
         return (
-            <div className='space-y-1 text-xs'>
+            <div className='space-y-2 text-xs border rounded-md p-2 bg-muted/30'>
                 {field.fields?.map(subField => (
-                    <div key={subField.name} className='flex gap-2'>
-                        <strong className='font-medium'>{subField.name}:</strong>
-                        <span>{renderDisplayValue(subField, groupData[subField.name] ?? 'N/A')}</span>
+                    <div key={subField.name} className='grid grid-cols-2 gap-2 items-center'>
+                        <strong className='font-medium truncate'>{subField.name}:</strong>
+                        <span className="truncate">{renderDisplayValue(subField, groupData[subField.name] ?? 'N/A')}</span>
                     </div>
                 ))}
             </div>
@@ -336,5 +336,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     </>
   );
 }
+
+    
 
     
