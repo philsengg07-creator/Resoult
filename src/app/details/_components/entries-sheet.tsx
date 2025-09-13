@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,7 +30,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
-interface EntriesSheetProps {
+interface EntriesDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   form: CustomForm;
@@ -91,7 +91,7 @@ function checkRequiredFields(fields: CustomFormField[], data: Record<string, any
     return null;
 }
 
-export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt, decrypt }: EntriesSheetProps) {
+export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt, decrypt }: EntriesDialogProps) {
   const { toast } = useToast();
   const [newEntry, setNewEntry] = useState<Record<string, any>>({});
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -240,24 +240,24 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
 
   return (
     <>
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[90%] p-0 flex flex-col max-h-[90svh]">
-        <SheetHeader className="p-6 pb-4 border-b">
-          <SheetTitle>Entries for: {form.title}</SheetTitle>
-          <SheetDescription>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="w-full max-w-[90vw] h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-4 border-b">
+          <DialogTitle>Entries for: {form.title}</DialogTitle>
+          <DialogDescription>
             Manage the encrypted entries for this form. Data is decrypted for display only.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex-1 overflow-auto">
-            <div className="p-6">
-                <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-hidden">
+             <ScrollArea className="h-full w-full">
+                <div className="p-6">
                     <Table>
                         <TableHeader>
                         <TableRow>
                             {form.fields.map((field) => (
                             <TableHead key={field.name}>{field.name}</TableHead>
                             ))}
-                            <TableHead className="w-[120px]">Actions</TableHead>
+                            <TableHead className="w-[120px] sticky right-0 bg-background">Actions</TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -268,7 +268,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
                                 {renderInputField(field, newEntry[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, [field.name]: val }))}
                             </TableCell>
                             ))}
-                            <TableCell>
+                            <TableCell className="sticky right-0 bg-background">
                             <Button onClick={handleAddEntry} size="sm">
                                 <PlusCircle className="mr-2 h-4 w-4" /> Add
                             </Button>
@@ -290,7 +290,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
                                         </TableCell>
                                     )
                                 })}
-                            <TableCell className="flex gap-1 align-top">
+                            <TableCell className="flex gap-1 align-top sticky right-0 bg-background">
                                 {editingEntryId === entry.id ? (
                                     <>
                                         <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
@@ -318,11 +318,11 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
                     {entries.length === 0 && (
                         <p className="text-center text-muted-foreground p-8">No entries for this form yet.</p>
                     )}
-                </ScrollArea>
-            </div>
+                </div>
+            </ScrollArea>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
     <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -342,5 +342,3 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     </>
   );
 }
-
-    

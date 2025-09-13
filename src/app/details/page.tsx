@@ -15,7 +15,7 @@ import { type CustomForm, type FormEntry } from '@/types';
 import * as crypto from 'crypto-js';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { CustomFormDialog } from './_components/custom-form-dialog';
-import { EntriesSheet } from './_components/entries-sheet';
+import { EntriesDialog } from './_components/entries-sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
@@ -217,7 +217,7 @@ export default function DetailsPage() {
       />
 
       {selectedForm && (
-        <EntriesSheet
+        <EntriesDialog
           isOpen={isFormSheetOpen}
           onOpenChange={setIsFormSheetOpen}
           form={selectedForm}
