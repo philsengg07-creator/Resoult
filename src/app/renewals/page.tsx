@@ -469,7 +469,7 @@ export default function RenewalsPage() {
                                                     !field.value && 'text-muted-foreground'
                                                 )}
                                                 >
-                                                {field.value ? (
+                                                {field.value && isValid(field.value) ? (
                                                     format(field.value, 'PPP')
                                                 ) : (
                                                     <span>Pick a date</span>
@@ -510,7 +510,7 @@ export default function RenewalsPage() {
                                                     !field.value && 'text-muted-foreground'
                                                 )}
                                                 >
-                                                {field.value ? (
+                                                {field.value && isValid(field.value) ? (
                                                     format(field.value, 'PPP')
                                                 ) : (
                                                     <span>Pick a date</span>
@@ -650,5 +650,3 @@ export default function RenewalsPage() {
     </div>
   );
 }
-
-    
