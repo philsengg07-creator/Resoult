@@ -12,7 +12,7 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons/logo';
-import { PlusCircle, LayoutDashboard, Ticket, CalendarClock, ClipboardList } from 'lucide-react';
+import { PlusCircle, LayoutDashboard, Ticket, CalendarClock, ClipboardList, Briefcase } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 
@@ -104,6 +104,18 @@ export function AppSidebar() {
                       <Link href="/details">
                         <ClipboardList />
                         <span>Details</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith('/work')}
+                      tooltip="Work"
+                    >
+                      <Link href="/work">
+                        <Briefcase />
+                        <span>Work</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

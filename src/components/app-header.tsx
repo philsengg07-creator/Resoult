@@ -28,6 +28,7 @@ export function AppHeader() {
     if (pathname.startsWith('/tickets')) return 'All Tickets';
     if (pathname.startsWith('/renewals')) return 'Renewals';
     if (pathname.startsWith('/details')) return 'Details';
+    if (pathname.startsWith('/work')) return 'Work Management';
     return user.role === 'Admin' ? 'Admin Dashboard' : 'Employee Dashboard';
   };
   

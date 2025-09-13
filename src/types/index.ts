@@ -82,3 +82,13 @@ export interface FormEntry {
     formId: string;
     data: Record<string, string>; // Encrypted key-value pairs
 }
+
+// Types for Work Module
+export type WorkStatus = 'Pending' | 'In Process' | 'Finished';
+
+export interface WorkItem {
+    id: string;
+    description: string;
+    status: WorkStatus;
+    createdAt: string;
+}
