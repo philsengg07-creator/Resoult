@@ -78,7 +78,7 @@ export interface CustomForm {
 }
 
 export interface FormEntry {
-    id: string;
+    id:string;
     formId: string;
     data: Record<string, string>; // Encrypted key-value pairs
 }
@@ -90,5 +90,12 @@ export interface WorkItem {
     id: string;
     description: string;
     status: WorkStatus;
+    createdAt: string;
+}
+
+export interface WorkUpdate {
+    id: string;
+    workItemId: string;
+    text: string;
     createdAt: string;
 }

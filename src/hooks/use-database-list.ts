@@ -7,7 +7,7 @@ import { useAuth } from './use-auth';
 
 const ADMIN_UID = 'Pb2Pgfb4EiXMGLrNV1y24i3qa6C3'; 
 // These paths contain data shared across all admins.
-const SHARED_ADMIN_PATHS = ['tickets', 'renewals', 'customForms', 'formEntries', 'work'];
+const SHARED_ADMIN_PATHS = ['tickets', 'renewals', 'customForms', 'formEntries', 'work', 'workUpdates'];
 
 export function useDatabaseList<T extends { id: string }>(path: string) {
   const { user, firebaseUser, loading: authLoading } = useAuth();

@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { useDatabaseList } from '@/hooks/use-database-list';
-import { type WorkItem, type WorkStatus } from '@/types';
+import { type WorkItem, type WorkStatus, type WorkUpdate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -23,7 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -40,13 +39,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, MessageSquarePlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { WorkUpdatesSheet } from './_components/work-updates-sheet';
 
 
 const workSchema = z.object({
@@ -67,9 +66,14 @@ export default function WorkPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const { data: workItems, add: addWorkItem, update: updateWorkItem, removeById: deleteWorkItem, loading: workItemsLoading } = useDatabaseList<WorkItem>('work');
+  const { data: workUpdates, add: addWorkUpdate, update: updateWorkUpdate, removeById: deleteWorkUpdate, loading: updatesLoading } = useDatabaseList<WorkUpdate>('workUpdates');
+
   const [dialogState, setDialogState] = useState<{ open: boolean, mode: 'add' | 'edit', item: WorkItem | null }>({ open: false, mode: 'add', item: null });
   const { toast } = useToast();
   const [itemToDelete, setItemToDelete] = useState<WorkItem | null>(null);
+  const [selectedWorkItem, setSelectedWorkItem] = useState<WorkItem | null>(null);
+  const [isUpdatesSheetOpen, setIsUpdatesSheetOpen] = useState(false);
+
 
   const form = useForm<WorkFormValues>({
     resolver: zodResolver(workSchema),
@@ -96,6 +100,12 @@ export default function WorkPage() {
       });
     }
   }, [dialogState, form]);
+  
+  useEffect(() => {
+      if(selectedWorkItem && !isUpdatesSheetOpen) {
+          setSelectedWorkItem(null);
+      }
+  }, [isUpdatesSheetOpen, selectedWorkItem]);
 
   useEffect(() => {
     if (isClient && !authLoading) {
@@ -142,8 +152,13 @@ export default function WorkPage() {
     toast({ title: 'Success', description: `Work item deleted.` });
     setItemToDelete(null);
   };
+  
+  const handleOpenUpdatesSheet = (item: WorkItem) => {
+    setSelectedWorkItem(item);
+    setIsUpdatesSheetOpen(true);
+  }
 
-  const isLoading = !isClient || authLoading || workItemsLoading;
+  const isLoading = !isClient || authLoading || workItemsLoading || updatesLoading;
 
   if (isLoading) {
     return (
@@ -179,6 +194,7 @@ export default function WorkPage() {
   };
 
   return (
+    <>
     <div className="container mx-auto space-y-6">
        <Card>
         <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -212,6 +228,9 @@ export default function WorkPage() {
                             <TableCell><Badge className={statusColors[item.status]}>{item.status}</Badge></TableCell>
                             <TableCell>{format(createdD, 'PPP')}</TableCell>
                             <TableCell className="text-right space-x-0.5">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenUpdatesSheet(item)}>
+                                    <MessageSquarePlus className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('edit', item)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
@@ -303,5 +322,17 @@ export default function WorkPage() {
             </AlertDialogContent>
       </AlertDialog>
     </div>
+    {selectedWorkItem && (
+        <WorkUpdatesSheet 
+            isOpen={isUpdatesSheetOpen}
+            onOpenChange={setIsUpdatesSheetOpen}
+            workItem={selectedWorkItem}
+            updates={workUpdates.filter(u => u.workItemId === selectedWorkItem.id)}
+            onAddUpdate={addWorkUpdate}
+            onUpdateUpdate={updateWorkUpdate}
+            onDeleteUpdate={deleteWorkUpdate}
+        />
+    )}
+    </>
   );
 }
