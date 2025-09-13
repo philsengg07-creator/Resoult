@@ -5,8 +5,8 @@ import { database } from '@/lib/firebase';
 import { ref, onValue, set, push, remove, off } from 'firebase/database';
 import { useAuth } from './use-auth';
 
-const EMPLOYEE_SHARED_ID = 'employee_shared';
 const ADMIN_UID = 'Pb2Pgfb4EiXMGLrNV1y24i3qa6C3'; 
+// These paths contain data shared across all admins.
 const SHARED_ADMIN_PATHS = ['tickets', 'renewals', 'customForms', 'formEntries'];
 
 export function useDatabaseList<T extends { id: string }>(path: string) {
@@ -28,20 +28,23 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
 
     let dataPath: string | null = null;
     
+    // Determine the correct read path based on user role and data type.
     if (user.role === 'Admin') {
-      // Admins read from the central admin UID for shared paths, and their own UID for others.
+      // If the user is an admin and the path is a shared path, use the central ADMIN_UID.
       if (SHARED_ADMIN_PATHS.includes(path)) {
         dataPath = `data/${ADMIN_UID}/${path}`;
       } else {
+        // Otherwise, for user-specific data (like notifications), use their own UID.
         dataPath = `data/${currentUserId}/${path}`;
       }
     } else { // Employee
-      // Employees only access their own notifications. They should not attempt to read admin-only paths.
+      // Employees should only access their own user-specific data (e.g., notifications).
+      // They should not attempt to read admin-only shared paths.
       if (path === 'notifications') {
          dataPath = `data/${currentUserId}/${path}`;
       }
-      // For any other path, an employee should not be trying to read, so we'll set no path.
-      // This prevents permission errors. The `add` function will still allow them to write tickets.
+      // For any other path an employee might try to access (e.g., renewals, customForms),
+      // dataPath remains null, preventing a permission error. The hook will return empty data.
     }
 
     if (!dataPath) {
@@ -67,18 +70,23 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     };
   }, [path, authLoading, user, currentUserId]);
 
-  const add = (item: Omit<T, 'id'>): string => {
+  const getWritePath = (id?: string) => {
     if (!currentUserId) throw new Error('User not authenticated');
-
-    let writePath;
-    // Shared data is always written to the central admin path, regardless of who is writing.
-    if (SHARED_ADMIN_PATHS.includes(path)) {
-        writePath = `data/${ADMIN_UID}/${path}`;
-    } else {
-        // User-specific data (like notifications) is written to the user's own space.
-        writePath = `data/${currentUserId}/${path}`;
-    }
     
+    let basePath;
+    // Determine the correct base path for writing.
+    if (SHARED_ADMIN_PATHS.includes(path)) {
+        // For shared data, all users (including employees creating tickets) write to the central admin path.
+        basePath = `data/${ADMIN_UID}/${path}`;
+    } else {
+        // For user-specific data (like notifications), write to the user's own space.
+        basePath = `data/${currentUserId}/${path}`;
+    }
+    return id ? `${basePath}/${id}` : basePath;
+  }
+
+  const add = (item: Omit<T, 'id'>): string => {
+    const writePath = getWritePath();
     const dataRef = ref(database, writePath);
     const newItemRef = push(dataRef);
     set(newItemRef, item);
@@ -86,32 +94,15 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
   };
 
   const update = (id: string, item: Partial<T>) => {
-    if (!currentUserId) throw new Error('User not authenticated');
-
-    let writePath;
-    if (SHARED_ADMIN_PATHS.includes(path)) {
-        writePath = `data/${ADMIN_UID}/${path}/${id}`;
-    } else {
-        writePath = `data/${currentUserId}/${path}/${id}`;
-    }
-    
+    const writePath = getWritePath(id);
     const itemRef = ref(database, writePath);
     const { id: _, ...rest } = item as any;
     const currentItem = data.find(d => d.id === id);
-    // Use set with merge behavior by providing the full object
     set(itemRef, { ...currentItem, ...rest });
   };
   
   const removeById = (id: string) => {
-    if (!currentUserId) throw new Error('User not authenticated');
-    
-    let writePath;
-    if (SHARED_ADMIN_PATHS.includes(path)) {
-        writePath = `data/${ADMIN_UID}/${path}/${id}`;
-    } else {
-        writePath = `data/${currentUserId}/${path}/${id}`;
-    }
-    
+    const writePath = getWritePath(id);
     const itemRef = ref(database, writePath);
     remove(itemRef);
   };
