@@ -110,8 +110,12 @@ export default function DetailsPage() {
 
   const handleDeleteForm = () => {
     if (!formToDelete) return;
+    // Also delete all entries associated with this form
+    formEntries
+      .filter(entry => entry.formId === formToDelete.id)
+      .forEach(entry => deleteEntry(entry.id));
     deleteForm(formToDelete.id);
-    toast({ title: 'Success', description: `Form "${formToDelete.title}" deleted.` });
+    toast({ title: 'Success', description: `Form "${formToDelete.title}" and all its entries have been deleted.` });
     setFormToDelete(null);
   };
   
@@ -182,10 +186,9 @@ export default function DetailsPage() {
               {customForms.map((form) => (
                 <Card 
                     key={form.id} 
-                    className="flex flex-col justify-between p-4 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => { setSelectedForm(form); setIsFormSheetOpen(true); }}
+                    className="flex flex-col justify-between p-4"
                 >
-                  <div className='flex-grow'>
+                  <div className='flex-grow cursor-pointer' onClick={() => { setSelectedForm(form); setIsFormSheetOpen(true); }}>
                     <h3 className="font-semibold">{form.title}</h3>
                     <p className="text-sm text-muted-foreground">{form.fields.length} fields</p>
                   </div>

@@ -63,12 +63,19 @@ export type PushNotificationInput = z.infer<typeof PushNotificationInputSchema>;
 
 
 // Types for Custom Encrypted Forms
-export const CustomFormFieldTypeSchema = z.enum(['text', 'textarea', 'date', 'time', 'datetime', 'boolean']);
+export const CustomFormFieldTypeSchema = z.enum(['text', 'textarea', 'date', 'time', 'datetime', 'boolean', 'group']);
 export type CustomFormFieldType = z.infer<typeof CustomFormFieldTypeSchema>;
+
+export const CustomFormFieldSchema: z.ZodType<CustomFormField> = z.lazy(() => z.object({
+  name: z.string().min(1, 'Field name is required.'),
+  type: CustomFormFieldTypeSchema,
+  fields: z.array(CustomFormFieldSchema).optional(),
+}));
 
 export interface CustomFormField {
     name: string;
     type: CustomFormFieldType;
+    fields?: CustomFormField[];
 }
 
 export interface CustomForm {
@@ -80,7 +87,7 @@ export interface CustomForm {
 export interface FormEntry {
     id:string;
     formId: string;
-    data: Record<string, string>; // Encrypted key-value pairs
+    data: Record<string, any>; // Can be string for simple fields, or nested object for groups
 }
 
 // Types for Work Module

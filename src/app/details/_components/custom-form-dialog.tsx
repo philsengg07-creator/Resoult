@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -11,17 +11,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
-import { type CustomForm, CustomFormFieldTypeSchema } from '@/types';
+import { type CustomForm, CustomFormFieldSchema, CustomFormFieldTypeSchema } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-const fieldSchema = z.object({
-  name: z.string().min(1, 'Field name is required.'),
-  type: CustomFormFieldTypeSchema,
-});
 
 const formSchema = z.object({
   title: z.string().min(2, 'Title is required.'),
-  fields: z.array(fieldSchema).min(1, 'At least one field is required.'),
+  fields: z.array(CustomFormFieldSchema).min(1, 'At least one field is required.'),
 });
 
 type FormBuilderValues = z.infer<typeof formSchema>;
@@ -31,6 +26,72 @@ interface CustomFormDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: Omit<CustomForm, 'id'>) => void;
   editingForm: CustomForm | null;
+}
+
+function SubFieldsArray({ control, nestIndex }: { control: Control<FormBuilderValues>; nestIndex: number }) {
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `fields.${nestIndex}.fields`,
+  });
+
+  return (
+    <div className="pl-6 mt-2 space-y-3">
+      {fields.map((item, k) => (
+        <div key={item.id} className="flex items-end gap-2 p-3 border rounded-md bg-muted/50">
+          <FormField
+            control={control}
+            name={`fields.${nestIndex}.fields.${k}.name`}
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <FormLabel className="text-xs">Sub-field Name</FormLabel>
+                <FormControl>
+                  <Input placeholder={`Sub-field ${k + 1}`} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={control}
+            name={`fields.${nestIndex}.fields.${k}.type`}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Sub-field Type</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="text">Text</SelectItem>
+                    <SelectItem value="textarea">Textarea</SelectItem>
+                    <SelectItem value="date">Date</SelectItem>
+                    <SelectItem value="time">Time</SelectItem>
+                    <SelectItem value="datetime">Date & Time</SelectItem>
+                    <SelectItem value="boolean">Yes/No</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="button" variant="destructive" size="icon" onClick={() => remove(k)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => append({ name: '', type: 'text' })}
+      >
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Sub-field
+      </Button>
+    </div>
+  );
 }
 
 export function CustomFormDialog({ isOpen, onOpenChange, onSubmit, editingForm }: CustomFormDialogProps) {
@@ -46,6 +107,8 @@ export function CustomFormDialog({ isOpen, onOpenChange, onSubmit, editingForm }
     control: form.control,
     name: 'fields',
   });
+  
+  const watchedFields = form.watch('fields');
 
   useEffect(() => {
     if (editingForm) {
@@ -97,48 +160,52 @@ export function CustomFormDialog({ isOpen, onOpenChange, onSubmit, editingForm }
                         <FormLabel>Fields</FormLabel>
                         <div className="space-y-4 mt-2">
                             {fields.map((field, index) => (
-                            <div key={field.id} className="flex items-end gap-2 p-3 border rounded-md">
-                                <FormField
-                                control={form.control}
-                                name={`fields.${index}.name`}
-                                render={({ field }) => (
-                                    <FormItem className="flex-1">
-                                    <FormLabel className="text-xs">Field Name</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder={`Field ${index + 1}`} {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
-                                <FormField
-                                control={form.control}
-                                name={`fields.${index}.type`}
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <FormLabel className="text-xs">Field Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <div key={field.id} className="p-3 border rounded-md">
+                                <div className="flex items-end gap-2">
+                                    <FormField
+                                    control={form.control}
+                                    name={`fields.${index}.name`}
+                                    render={({ field }) => (
+                                        <FormItem className="flex-1">
+                                        <FormLabel className="text-xs">Field Name</FormLabel>
                                         <FormControl>
-                                        <SelectTrigger className='w-[140px]'>
-                                            <SelectValue placeholder="Select type" />
-                                        </SelectTrigger>
+                                            <Input placeholder={`Field ${index + 1}`} {...field} />
                                         </FormControl>
-                                        <SelectContent>
-                                        <SelectItem value="text">Text</SelectItem>
-                                        <SelectItem value="textarea">Textarea</SelectItem>
-                                        <SelectItem value="date">Date</SelectItem>
-                                        <SelectItem value="time">Time</SelectItem>
-                                        <SelectItem value="datetime">Date & Time</SelectItem>
-                                        <SelectItem value="boolean">Yes/No</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
-                                <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
-                                <Trash2 className="h-4 w-4" />
-                                </Button>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    />
+                                    <FormField
+                                    control={form.control}
+                                    name={`fields.${index}.type`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel className="text-xs">Field Type</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                            <SelectTrigger className='w-[140px]'>
+                                                <SelectValue placeholder="Select type" />
+                                            </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                            <SelectItem value="text">Text</SelectItem>
+                                            <SelectItem value="textarea">Textarea</SelectItem>
+                                            <SelectItem value="date">Date</SelectItem>
+                                            <SelectItem value="time">Time</SelectItem>
+                                            <SelectItem value="datetime">Date & Time</SelectItem>
+                                            <SelectItem value="boolean">Yes/No</SelectItem>
+                                            <SelectItem value="group">Group</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    />
+                                    <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                {watchedFields[index]?.type === 'group' && <SubFieldsArray control={form.control} nestIndex={index} />}
                             </div>
                             ))}
                         </div>

@@ -42,6 +42,55 @@ interface EntriesSheetProps {
   decrypt: (ciphertext: string) => string;
 }
 
+function encryptObject(obj: any, encryptFn: (text: string) => string): any {
+    if (typeof obj !== 'object' || obj === null) {
+        return encryptFn(String(obj));
+    }
+    const encryptedObj: Record<string, any> = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const value = obj[key];
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                encryptedObj[key] = encryptObject(value, encryptFn);
+            } else {
+                encryptedObj[key] = encryptFn(String(value));
+            }
+        }
+    }
+    return encryptedObj;
+}
+
+function decryptObject(obj: any, decryptFn: (text: string) => string): any {
+    if (typeof obj !== 'object' || obj === null) {
+        try { return decryptFn(obj); } catch { return obj; }
+    }
+    const decryptedObj: Record<string, any> = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const value = obj[key];
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                decryptedObj[key] = decryptObject(value, decryptFn);
+            } else {
+                 try { decryptedObj[key] = decryptFn(value); } catch { decryptedObj[key] = value; }
+            }
+        }
+    }
+    return decryptedObj;
+}
+
+function checkRequiredFields(fields: CustomFormField[], data: Record<string, any>): string | null {
+    for (const field of fields) {
+        const value = data[field.name];
+        if (field.type === 'group' && field.fields) {
+            const nestedError = checkRequiredFields(field.fields, value || {});
+            if (nestedError) return nestedError;
+        } else if (field.type !== 'boolean' && (value === undefined || value === '')) {
+            return `Field "${field.name}" is required.`;
+        }
+    }
+    return null;
+}
+
 export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt, decrypt }: EntriesSheetProps) {
   const { toast } = useToast();
   const [newEntry, setNewEntry] = useState<Record<string, any>>({});
@@ -49,44 +98,36 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   const [editingEntryData, setEditingEntryData] = useState<Record<string, any>>({});
   const [entryToDelete, setEntryToDelete] = useState<FormEntry | null>(null);
 
-  const getInitialValue = (type: CustomFormField['type']) => {
-    switch (type) {
+  const getInitialValue = (field: CustomFormField): any => {
+    switch (field.type) {
       case 'boolean': return false;
-      case 'date':
-      case 'datetime':
-      case 'time':
-      case 'textarea':
-      case 'text':
+      case 'group':
+        if (!field.fields) return {};
+        return field.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {});
       default: return '';
     }
   };
 
   const handleAddEntry = () => {
-    for (const field of form.fields) {
-      if (field.type !== 'boolean' && !newEntry[field.name]) {
-        toast({ variant: 'destructive', title: 'Error', description: `Field "${field.name}" is required.` });
-        return;
-      }
+    const error = checkRequiredFields(form.fields, newEntry);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error });
+      return;
     }
-    const encryptedData = Object.fromEntries(
-      Object.entries(newEntry).map(([key, value]) => [key, encrypt(String(value))])
-    );
+    const encryptedData = encryptObject(newEntry, encrypt);
     onAddEntry({ formId: form.id, data: encryptedData });
-    setNewEntry({});
+    setNewEntry(form.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {}));
     toast({ title: 'Success', description: 'New entry added.' });
   };
   
   const handleUpdateEntry = () => {
     if (!editingEntryId) return;
-    for (const field of form.fields) {
-      if (field.type !== 'boolean' && !editingEntryData[field.name]) {
-        toast({ variant: 'destructive', title: 'Error', description: `Field "${field.name}" is required.` });
-        return;
-      }
+    const error = checkRequiredFields(form.fields, editingEntryData);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error });
+      return;
     }
-    const encryptedData = Object.fromEntries(
-        Object.entries(editingEntryData).map(([key, value]) => [key, encrypt(String(value))])
-    );
+    const encryptedData = encryptObject(editingEntryData, encrypt);
     onUpdateEntry(editingEntryId, { data: encryptedData });
     setEditingEntryId(null);
     setEditingEntryData({});
@@ -102,17 +143,14 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
 
   const startEditing = (entry: FormEntry) => {
     setEditingEntryId(entry.id);
-    const decryptedData = Object.fromEntries(
-        Object.entries(entry.data).map(([key, value]) => {
-            const field = form.fields.find(f => f.name === key);
-            let decryptedValue: any = decrypt(value);
-            if (field?.type === 'boolean') {
-              decryptedValue = decryptedValue === 'true';
-            }
-            return [key, decryptedValue];
-        })
-    );
-    setEditingEntryData(decryptedData);
+    const decryptedData = decryptObject(entry.data, decrypt);
+    // Convert boolean strings to booleans
+    const processedData = JSON.parse(JSON.stringify(decryptedData), (key, value) => {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+    });
+    setEditingEntryData(processedData);
   }
   
   const cancelEditing = () => {
@@ -121,6 +159,19 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
   }
 
   const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
+    if (field.type === 'group') {
+        return (
+            <div className='space-y-2 p-2 border rounded-md ml-2'>
+                {field.fields?.map(subField => (
+                    <div key={subField.name} className='flex items-center gap-2'>
+                         <Label className="w-24 text-xs">{subField.name}</Label>
+                        {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
     switch (field.type) {
       case 'textarea':
         return <Textarea placeholder={`New ${field.name}`} value={value || ''} onChange={(e) => onChange(e.target.value)} rows={1} />;
@@ -155,8 +206,22 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
     }
   }
 
-   const renderDisplayValue = (field: CustomFormField, encryptedValue: string) => {
-    const decrypted = decrypt(encryptedValue);
+   const renderDisplayValue = (field: CustomFormField, value: any): React.ReactNode => {
+    if (value === null || value === undefined) return 'N/A';
+    if(field.type === 'group') {
+        const groupData = decryptObject(value, decrypt);
+        return (
+            <div className='space-y-1 text-xs'>
+                {field.fields?.map(subField => (
+                    <div key={subField.name} className='flex gap-2'>
+                        <strong className='font-medium'>{subField.name}:</strong>
+                        <span>{renderDisplayValue(subField, groupData[subField.name] ?? 'N/A')}</span>
+                    </div>
+                ))}
+            </div>
+        )
+    }
+    const decrypted = typeof value === 'string' ? decrypt(value) : String(value);
     switch (field.type) {
         case 'boolean':
             return decrypted === 'true' ? 'Yes' : 'No';
@@ -164,9 +229,6 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
             try { return format(new Date(decrypted), 'PPP'); } catch { return 'Invalid Date';}
         case 'datetime':
             try { return format(new Date(decrypted), 'Pp'); } catch { return 'Invalid Date';}
-        case 'time':
-        case 'text':
-        case 'textarea':
         default:
             return decrypted;
     }
@@ -198,7 +260,7 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
                     <TableRow>
                         {form.fields.map((field) => (
                         <TableCell key={field.name}>
-                            {renderInputField(field, newEntry[field.name] ?? getInitialValue(field.type), (val) => setNewEntry({ ...newEntry, [field.name]: val }))}
+                            {renderInputField(field, newEntry[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, [field.name]: val }))}
                         </TableCell>
                         ))}
                         <TableCell>
@@ -214,16 +276,16 @@ export function EntriesSheet({ isOpen, onOpenChange, form, entries, onAddEntry, 
                             {form.fields.map((field) => {
                                 const isEditingThisRow = editingEntryId === entry.id;
                                 return (
-                                    <TableCell key={field.name}>
+                                    <TableCell key={field.name} className='align-top'>
                                         {isEditingThisRow ? (
                                             renderInputField(field, editingEntryData[field.name], (val) => setEditingEntryData({...editingEntryData, [field.name]: val}))
                                         ) : (
-                                            <span className='text-sm'>{entry.data[field.name] ? renderDisplayValue(field, entry.data[field.name]) : 'N/A'}</span>
+                                            <div className='text-sm'>{renderDisplayValue(field, entry.data[field.name])}</div>
                                         )}
                                     </TableCell>
                                 )
                             })}
-                        <TableCell className="flex gap-1">
+                        <TableCell className="flex gap-1 align-top">
                             {editingEntryId === entry.id ? (
                                 <>
                                     <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
