@@ -31,9 +31,9 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogFooter,
 } from '@/components/ui/alert-dialog';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -231,6 +231,9 @@ export default function RenewalsPage() {
       ...data,
       purchaseDate: data.purchaseDate.toISOString(),
       expiryDate: data.expiryDate.toISOString(),
+      amount: data.amount ?? undefined,
+      vendor: data.vendor ?? '',
+      notes: data.notes ?? '',
     };
 
     if (editingRenewal) {
@@ -263,6 +266,8 @@ export default function RenewalsPage() {
     const expiry = new Date(expiryDate);
     if (!isValid(expiry)) return 'Invalid Date';
     const days = differenceInDays(expiry, new Date());
+    if (days < -1) return `Expired ${Math.abs(days)} days ago`;
+    if (days === -1) return 'Expired yesterday';
     if (days < 0) return 'Expired';
     if (days === 0) return 'Today';
     return `${days} day(s)`;
