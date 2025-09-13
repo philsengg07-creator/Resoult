@@ -45,7 +45,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, Paperclip, FileText, Edit } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, isValid } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
@@ -259,7 +259,9 @@ export default function RenewalsPage() {
 
 
   const getDaysLeft = (expiryDate: string) => {
-    const days = differenceInDays(new Date(expiryDate), new Date());
+    const expiry = new Date(expiryDate);
+    if (!isValid(expiry)) return 'Invalid Date';
+    const days = differenceInDays(expiry, new Date());
     if (days < 0) return 'Expired';
     if (days === 0) return 'Today';
     return `${days} day(s)`;
@@ -322,28 +324,33 @@ export default function RenewalsPage() {
                 </TableHeader>
                 <TableBody>
                 {sortedRenewals.length > 0 ? (
-                  sortedRenewals.map((renewal) => (
-                    <TableRow key={renewal.id}>
-                      <TableCell className="font-medium">{renewal.itemName}</TableCell>
-                      <TableCell>{renewal.type}</TableCell>
-                      <TableCell>{format(new Date(renewal.purchaseDate), 'PPP')}</TableCell>
-                      <TableCell>{format(new Date(renewal.expiryDate), 'PPP')}</TableCell>
-                      <TableCell>{getDaysLeft(renewal.expiryDate)}</TableCell>
-                       <TableCell className="text-right">
-                        {renewal.attachment && (
-                          <Button variant="ghost" size="icon" onClick={() => setViewingAttachment({url: renewal.attachment!, name: renewal.attachmentName})}>
-                              <Paperclip className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(renewal)}>
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setRenewalToDelete(renewal)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  sortedRenewals.map((renewal) => {
+                    const purchaseD = new Date(renewal.purchaseDate);
+                    const expiryD = new Date(renewal.expiryDate);
+
+                    return (
+                        <TableRow key={renewal.id}>
+                            <TableCell className="font-medium">{renewal.itemName}</TableCell>
+                            <TableCell>{renewal.type}</TableCell>
+                            <TableCell>{isValid(purchaseD) ? format(purchaseD, 'PPP') : 'N/A'}</TableCell>
+                            <TableCell>{isValid(expiryD) ? format(expiryD, 'PPP') : 'N/A'}</TableCell>
+                            <TableCell>{getDaysLeft(renewal.expiryDate)}</TableCell>
+                            <TableCell className="text-right">
+                                {renewal.attachment && (
+                                <Button variant="ghost" size="icon" onClick={() => setViewingAttachment({url: renewal.attachment!, name: renewal.attachmentName})}>
+                                    <Paperclip className="h-4 w-4" />
+                                </Button>
+                                )}
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(renewal)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => setRenewalToDelete(renewal)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    )
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center">
@@ -637,3 +644,5 @@ export default function RenewalsPage() {
     </div>
   );
 }
+
+    
