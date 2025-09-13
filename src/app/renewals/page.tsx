@@ -33,7 +33,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, Paperclip, FileText } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, Paperclip, FileText, Edit } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays } from 'date-fns';
@@ -59,8 +59,9 @@ export default function RenewalsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  const { data: renewals, add: addRenewal, removeById: deleteRenewal, loading: renewalsLoading } = useDatabaseList<Renewal>('renewals');
+  const { data: renewals, add: addRenewal, update: updateRenewal, removeById: deleteRenewal, loading: renewalsLoading } = useDatabaseList<Renewal>('renewals');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRenewal, setEditingRenewal] = useState<Renewal | null>(null);
   const { toast } = useToast();
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -98,6 +99,29 @@ export default function RenewalsPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (editingRenewal) {
+      form.reset({
+        itemName: editingRenewal.itemName,
+        purchaseDate: new Date(editingRenewal.purchaseDate),
+        renewalDate: new Date(editingRenewal.renewalDate),
+        notes: editingRenewal.notes || '',
+        attachment: editingRenewal.attachment || '',
+        attachmentName: editingRenewal.attachmentName || '',
+      });
+    } else {
+      form.reset({
+        itemName: '',
+        purchaseDate: undefined,
+        renewalDate: undefined,
+        notes: '',
+        attachment: '',
+        attachmentName: '',
+      });
+    }
+  }, [editingRenewal, form]);
+
 
   useEffect(() => {
     setAttachmentPreview(attachmentValue);
@@ -179,19 +203,30 @@ export default function RenewalsPage() {
   }
 
   const onSubmit = (data: RenewalFormValues) => {
-    const newRenewal: Omit<Renewal, 'id'> = {
-      itemName: data.itemName,
+     const renewalData = {
+      ...data,
       purchaseDate: data.purchaseDate.toISOString(),
       renewalDate: data.renewalDate.toISOString(),
-      notes: data.notes,
-      attachment: data.attachment,
-      attachmentName: data.attachmentName,
     };
-    addRenewal(newRenewal);
-    toast({ title: 'Success', description: 'Renewal item added.' });
+
+    if (editingRenewal) {
+      updateRenewal(editingRenewal.id, renewalData);
+      toast({ title: 'Success', description: 'Renewal item updated.' });
+    } else {
+      addRenewal(renewalData);
+      toast({ title: 'Success', description: 'Renewal item added.' });
+    }
+    
     form.reset();
+    setEditingRenewal(null);
     setIsFormOpen(false);
   };
+  
+  const handleOpenDialog = (renewal: Renewal | null) => {
+    setEditingRenewal(renewal);
+    setIsFormOpen(true);
+  };
+
 
   const getDaysLeft = (renewalDate: string) => {
     const days = differenceInDays(new Date(renewalDate), new Date());
@@ -238,24 +273,69 @@ export default function RenewalsPage() {
                 <CardTitle>Renewal Management</CardTitle>
                 <CardDescription>Track warranty and renewal dates for your items.</CardDescription>
             </div>
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-                <Button onClick={() => form.reset()}>
-                    <PlusCircle className="mr-2" />
-                    Add Item
-                </Button>
-            </DialogTrigger>
+            <Button onClick={() => handleOpenDialog(null)}>
+                <PlusCircle className="mr-2" />
+                Add Item
+            </Button>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead>Purchase Date</TableHead>
+                    <TableHead>Renewal Date</TableHead>
+                    <TableHead>Days Left</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+                </TableHeader>
+                <TableBody>
+                {sortedRenewals.length > 0 ? (
+                  sortedRenewals.map((renewal) => (
+                    <TableRow key={renewal.id}>
+                      <TableCell className="font-medium">{renewal.itemName}</TableCell>
+                      <TableCell>{format(new Date(renewal.purchaseDate), 'PPP')}</TableCell>
+                      <TableCell>{format(new Date(renewal.renewalDate), 'PPP')}</TableCell>
+                      <TableCell>{getDaysLeft(renewal.renewalDate)}</TableCell>
+                       <TableCell className="text-right">
+                        {renewal.attachment && (
+                          <Button variant="ghost" size="icon" onClick={() => setViewingAttachment({url: renewal.attachment!, name: renewal.attachmentName})}>
+                              <Paperclip className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(renewal)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteRenewal(renewal.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center">
+                      No renewal items added yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+                </TableBody>
+            </Table>
+        </CardContent>
+       </Card>
+       
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="sm:max-w-md grid-rows-[auto_1fr_auto] p-0 max-h-[90svh]">
                 <DialogHeader className="p-6 pb-0">
-                    <DialogTitle>Add New Renewal Item</DialogTitle>
+                    <DialogTitle>{editingRenewal ? 'Edit Renewal Item' : 'Add New Renewal Item'}</DialogTitle>
                     <DialogDescription>
-                        Fill in the details below to track a new item.
+                       {editingRenewal ? 'Update the details for this item.' : 'Fill in the details below to track a new item.'}
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="h-full">
                     <div className="p-6">
                         <Form {...form}>
-                            <form id="add-renewal-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            <form id="renewal-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <FormField
                                 control={form.control}
                                 name="itemName"
@@ -396,53 +476,10 @@ export default function RenewalsPage() {
                     </div>
                 </ScrollArea>
                 <DialogFooter className="p-6 pt-0">
-                    <Button type="submit" form="add-renewal-form">Add Renewal</Button>
+                    <Button type="submit" form="renewal-form">{editingRenewal ? 'Save Changes' : 'Add Renewal'}</Button>
                 </DialogFooter>
             </DialogContent>
-            </Dialog>
-        </CardHeader>
-        <CardContent>
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Item Name</TableHead>
-                    <TableHead>Purchase Date</TableHead>
-                    <TableHead>Renewal Date</TableHead>
-                    <TableHead>Days Left</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {sortedRenewals.length > 0 ? (
-                  sortedRenewals.map((renewal) => (
-                    <TableRow key={renewal.id}>
-                      <TableCell className="font-medium">{renewal.itemName}</TableCell>
-                      <TableCell>{format(new Date(renewal.purchaseDate), 'PPP')}</TableCell>
-                      <TableCell>{format(new Date(renewal.renewalDate), 'PPP')}</TableCell>
-                      <TableCell>{getDaysLeft(renewal.renewalDate)}</TableCell>
-                       <TableCell className="text-right">
-                        {renewal.attachment && (
-                          <Button variant="ghost" size="icon" onClick={() => setViewingAttachment({url: renewal.attachment!, name: renewal.attachmentName})}>
-                              <Paperclip className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="icon" onClick={() => deleteRenewal(renewal.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      No renewal items added yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-                </TableBody>
-            </Table>
-        </CardContent>
-       </Card>
+        </Dialog>
 
         <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
             <DialogContent>
@@ -477,14 +514,14 @@ export default function RenewalsPage() {
                     <DialogTitle>Attachment: {viewingAttachment?.name}</DialogTitle>
                  </DialogHeader>
                  {viewingAttachment && (
-                    <div className="h-full w-full rounded-md border mt-4">
+                     <ScrollArea className="h-full w-full rounded-md border mt-4">
                         {viewingAttachment.url.startsWith('data:image') && (
-                            <Image src={viewingAttachment.url} alt="Attachment" layout="fill" className="object-contain" />
+                            <Image src={viewingAttachment.url} alt="Attachment" width={1200} height={1200} className="w-full h-auto" />
                         )}
                          {viewingAttachment.url.startsWith('data:application/pdf') && (
-                            <embed src={viewingAttachment.url} type="application/pdf" width="100%" height="100%" />
+                            <embed src={viewingAttachment.url} type="application/pdf" width="100%" height="100%" className='h-full min-h-[70vh]' />
                         )}
-                    </div>
+                    </ScrollArea>
                  )}
             </DialogContent>
         </Dialog>
