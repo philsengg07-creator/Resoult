@@ -30,21 +30,21 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     
     // Determine the correct read path based on user role and data type.
     if (user.role === 'Admin') {
-      // If the user is an admin and the path is a shared path, use the central ADMIN_UID.
+      // If the user is an admin, they read from the central shared path for shared data,
+      // and their own UID path for user-specific data (like notifications).
       if (SHARED_ADMIN_PATHS.includes(path)) {
         dataPath = `data/${ADMIN_UID}/${path}`;
       } else {
-        // Otherwise, for user-specific data (like notifications), use their own UID.
         dataPath = `data/${currentUserId}/${path}`;
       }
     } else { // Employee
       // Employees should only access their own user-specific data (e.g., notifications).
-      // They should not attempt to read admin-only shared paths.
+      // They should not attempt to read admin-only shared paths like renewals.
       if (path === 'notifications') {
          dataPath = `data/${currentUserId}/${path}`;
       }
-      // For any other path an employee might try to access (e.g., renewals, customForms),
-      // dataPath remains null, preventing a permission error. The hook will return empty data.
+      // For any other path an employee might try to access (e.g., tickets, renewals, customForms),
+      // dataPath remains null, preventing a permission error. The hook will return empty data for those.
     }
 
     if (!dataPath) {
@@ -76,7 +76,8 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     let basePath;
     // Determine the correct base path for writing.
     if (SHARED_ADMIN_PATHS.includes(path)) {
-        // For shared data, all users (including employees creating tickets) write to the central admin path.
+        // For shared data, all users (including admins and employees creating tickets)
+        // write to the central admin path.
         basePath = `data/${ADMIN_UID}/${path}`;
     } else {
         // For user-specific data (like notifications), write to the user's own space.
@@ -98,6 +99,7 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
     const itemRef = ref(database, writePath);
     const { id: _, ...rest } = item as any;
     const currentItem = data.find(d => d.id === id);
+    // Use set with merge behavior to update fields
     set(itemRef, { ...currentItem, ...rest });
   };
   
