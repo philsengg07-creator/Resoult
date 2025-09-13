@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useDatabaseList } from '@/hooks/use-database-list';
 import { type Renewal } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, Paperclip } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, Paperclip, FileText } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays } from 'date-fns';
@@ -50,6 +50,7 @@ const renewalSchema = z.object({
   renewalDate: z.date({ required_error: 'Renewal date is required.' }),
   notes: z.string().optional(),
   attachment: z.string().optional(),
+  attachmentName: z.string().optional(),
 });
 
 type RenewalFormValues = z.infer<typeof renewalSchema>;
@@ -67,7 +68,7 @@ export default function RenewalsPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | undefined>();
-  const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
+  const [viewingAttachment, setViewingAttachment] = useState<{url: string; name?: string;} | null>(null);
 
 
   const form = useForm<RenewalFormValues>({
@@ -76,10 +77,23 @@ export default function RenewalsPage() {
       itemName: '',
       notes: '',
       attachment: '',
+      attachmentName: '',
     },
   });
   
   const attachmentValue = form.watch('attachment');
+  const attachmentNameValue = form.watch('attachmentName');
+
+  const attachmentPreviewInfo = useMemo(() => {
+    if (!attachmentValue) return null;
+    const isPdf = attachmentValue.startsWith('data:application/pdf');
+    return {
+      url: attachmentValue,
+      name: attachmentNameValue || (isPdf ? 'document.pdf' : 'image.png'),
+      isPdf: isPdf,
+      isImage: attachmentValue.startsWith('data:image'),
+    };
+  }, [attachmentValue, attachmentNameValue]);
 
   useEffect(() => {
     setIsClient(true);
@@ -120,7 +134,6 @@ export default function RenewalsPage() {
       };
       getCameraPermission();
     } else {
-        // Stop camera stream when dialog is closed
         if (videoRef.current && videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach(track => track.stop());
@@ -134,8 +147,8 @@ export default function RenewalsPage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        setAttachmentPreview(result);
         form.setValue('attachment', result);
+        form.setValue('attachmentName', file.name);
       };
       reader.readAsDataURL(file);
     }
@@ -151,16 +164,16 @@ export default function RenewalsPage() {
       if (context) {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUrl = canvas.toDataURL('image/png');
-        setAttachmentPreview(dataUrl);
         form.setValue('attachment', dataUrl);
+        form.setValue('attachmentName', `capture-${Date.now()}.png`);
       }
       setIsCameraOpen(false);
     }
   };
   
   const removeAttachment = () => {
-    setAttachmentPreview(undefined);
     form.setValue('attachment', '');
+    form.setValue('attachmentName', '');
     const fileInput = document.getElementById('attachment-upload') as HTMLInputElement;
     if(fileInput) fileInput.value = '';
   }
@@ -171,12 +184,12 @@ export default function RenewalsPage() {
       purchaseDate: data.purchaseDate.toISOString(),
       renewalDate: data.renewalDate.toISOString(),
       notes: data.notes,
-      attachment: attachmentPreview,
+      attachment: data.attachment,
+      attachmentName: data.attachmentName,
     };
     addRenewal(newRenewal);
     toast({ title: 'Success', description: 'Renewal item added.' });
     form.reset();
-    setAttachmentPreview(undefined);
     setIsFormOpen(false);
   };
 
@@ -227,7 +240,7 @@ export default function RenewalsPage() {
             </div>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogTrigger asChild>
-                <Button>
+                <Button onClick={() => form.reset()}>
                     <PlusCircle className="mr-2" />
                     Add Item
                 </Button>
@@ -338,7 +351,7 @@ export default function RenewalsPage() {
                                 <FormItem>
                                     <FormLabel>Attachment (optional)</FormLabel>
                                     <div className="grid grid-cols-2 gap-2">
-                                    <Input id="attachment-upload" type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                                    <Input id="attachment-upload" type="file" accept="image/*,application/pdf" onChange={handlePhotoUpload} className="hidden" />
                                     <Button type="button" variant="outline" onClick={() => document.getElementById('attachment-upload')?.click()}>
                                         <Upload className="mr-2 h-4 w-4" />
                                         Upload
@@ -348,9 +361,17 @@ export default function RenewalsPage() {
                                         Capture
                                     </Button>
                                     </div>
-                                    {attachmentPreview && (
-                                        <div className="relative mt-2 w-full aspect-video rounded-md overflow-hidden border">
-                                            <Image src={attachmentPreview} alt="Attachment preview" layout="fill" objectFit="contain" />
+                                    {attachmentPreviewInfo && (
+                                        <div className="relative mt-2 w-full p-2 rounded-md border">
+                                            {attachmentPreviewInfo.isImage && (
+                                                <Image src={attachmentPreviewInfo.url} alt="Attachment preview" width={400} height={300} className="w-full h-auto rounded-md" />
+                                            )}
+                                            {attachmentPreviewInfo.isPdf && (
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                   <FileText className="h-6 w-6" />
+                                                   <span className='truncate'>{attachmentPreviewInfo.name}</span>
+                                                </div>
+                                            )}
                                             <Button type="button" size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={removeAttachment}>
                                                 <X className="h-4 w-4" />
                                             </Button>
@@ -401,7 +422,7 @@ export default function RenewalsPage() {
                       <TableCell>{getDaysLeft(renewal.renewalDate)}</TableCell>
                        <TableCell className="text-right">
                         {renewal.attachment && (
-                          <Button variant="ghost" size="icon" onClick={() => setViewingAttachment(renewal.attachment!)}>
+                          <Button variant="ghost" size="icon" onClick={() => setViewingAttachment({url: renewal.attachment!, name: renewal.attachmentName})}>
                               <Paperclip className="h-4 w-4" />
                           </Button>
                         )}
@@ -423,7 +444,6 @@ export default function RenewalsPage() {
         </CardContent>
        </Card>
 
-        {/* Camera Capture Dialog */}
         <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
             <DialogContent>
                 <DialogHeader>
@@ -451,21 +471,25 @@ export default function RenewalsPage() {
             </DialogContent>
         </Dialog>
 
-        {/* Attachment Viewer Dialog */}
         <Dialog open={!!viewingAttachment} onOpenChange={(open) => !open && setViewingAttachment(null)}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-3xl h-[80vh]">
                  <DialogHeader>
-                    <DialogTitle>Attachment Viewer</DialogTitle>
+                    <DialogTitle>Attachment: {viewingAttachment?.name}</DialogTitle>
                  </DialogHeader>
                  {viewingAttachment && (
-                    <ScrollArea className="max-h-[70vh] w-full rounded-md border mt-4">
-                        <div className="relative w-full">
-                           <Image src={viewingAttachment} alt="Attachment" width={1920} height={1080} className="w-full h-auto object-contain" />
-                        </div>
-                    </ScrollArea>
+                    <div className="h-full w-full rounded-md border mt-4">
+                        {viewingAttachment.url.startsWith('data:image') && (
+                            <Image src={viewingAttachment.url} alt="Attachment" layout="fill" className="object-contain" />
+                        )}
+                         {viewingAttachment.url.startsWith('data:application/pdf') && (
+                            <embed src={viewingAttachment.url} type="application/pdf" width="100%" height="100%" />
+                        )}
+                    </div>
                  )}
             </DialogContent>
         </Dialog>
     </div>
   );
 }
+
+    
