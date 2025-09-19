@@ -259,7 +259,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     if(field.type === 'group') {
         return (
             <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex w-max space-x-4">
+                <div className="flex w-max space-x-4 p-1">
                     {field.fields?.map(subField => (
                         <div key={subField.name} className='text-xs w-[200px]'>
                             <strong className="font-semibold">{subField.name}:</strong>
