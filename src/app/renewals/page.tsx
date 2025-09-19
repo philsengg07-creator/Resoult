@@ -391,16 +391,7 @@ export default function RenewalsPage() {
         </CardContent>
        </Card>
        
-        <Dialog open={dialogState.open} onOpenChange={(open) => {
-            if (!open) {
-                // Only allow closing if not in edit/add mode, or force close via X button
-                 if (dialogState.mode === 'view') {
-                    setDialogState({ ...dialogState, open: false });
-                 }
-            } else {
-                 setDialogState({ ...dialogState, open: true });
-            }
-        }}>
+        <Dialog open={dialogState.open} onOpenChange={(open) => setDialogState({...dialogState, open})}>
             <DialogContent 
                 className="sm:max-w-md grid-rows-[auto_1fr_auto] p-0 max-h-[90svh]"
                 onInteractOutside={(e) => {
@@ -703,6 +694,8 @@ export default function RenewalsPage() {
     </div>
   );
 }
+
+    
 
     
 
