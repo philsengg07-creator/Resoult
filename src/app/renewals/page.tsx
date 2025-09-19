@@ -391,8 +391,24 @@ export default function RenewalsPage() {
         </CardContent>
        </Card>
        
-        <Dialog open={dialogState.open} onOpenChange={(open) => setDialogState({ ...dialogState, open })}>
-            <DialogContent className="sm:max-w-md grid-rows-[auto_1fr_auto] p-0 max-h-[90svh]">
+        <Dialog open={dialogState.open} onOpenChange={(open) => {
+            if (!open) {
+                // Only allow closing if not in edit/add mode, or force close via X button
+                 if (dialogState.mode === 'view') {
+                    setDialogState({ ...dialogState, open: false });
+                 }
+            } else {
+                 setDialogState({ ...dialogState, open: true });
+            }
+        }}>
+            <DialogContent 
+                className="sm:max-w-md grid-rows-[auto_1fr_auto] p-0 max-h-[90svh]"
+                onInteractOutside={(e) => {
+                    if (dialogState.mode !== 'view') {
+                        e.preventDefault();
+                    }
+                }}
+            >
                 <DialogHeader className="p-6 pb-0">
                     <DialogTitle>{dialogTitle[dialogState.mode]}</DialogTitle>
                      {dialogState.mode !== 'view' && (
@@ -613,11 +629,10 @@ export default function RenewalsPage() {
                     </div>
                 </ScrollArea>
                 <DialogFooter className="p-6 pt-0">
-                    {dialogState.mode === 'view' ? (
-                         <DialogClose asChild>
-                            <Button>Close</Button>
-                        </DialogClose>
-                    ) : (
+                    <DialogClose asChild>
+                         <Button variant="outline" onClick={() => setDialogState({open: false, mode: 'add', item: null})}>Cancel</Button>
+                    </DialogClose>
+                    {dialogState.mode !== 'view' && (
                         <Button type="submit" form="renewal-form">{dialogState.mode === 'edit' ? 'Save Changes' : 'Add Item'}</Button>
                     )}
                 </DialogFooter>
@@ -688,5 +703,7 @@ export default function RenewalsPage() {
     </div>
   );
 }
+
+    
 
     
