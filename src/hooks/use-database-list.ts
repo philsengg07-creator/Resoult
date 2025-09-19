@@ -7,7 +7,7 @@ import { useAuth } from './use-auth';
 
 const ADMIN_UID = 'Pb2Pgfb4EiXMGLrNV1y24i3qa6C3'; 
 // These paths contain data shared across all admins.
-const SHARED_ADMIN_PATHS = ['tickets', 'renewals', 'customForms', 'formEntries', 'work', 'workUpdates'];
+const SHARED_ADMIN_PATHS = ['tickets', 'renewals', 'customForms', 'formEntries', 'work', 'workUpdates', 'sheets', 'sheetCells'];
 
 export function useDatabaseList<T extends { id: string }>(path: string) {
   const { user, firebaseUser, loading: authLoading } = useAuth();
@@ -71,20 +71,21 @@ export function useDatabaseList<T extends { id: string }>(path: string) {
   }, [path, authLoading, user, currentUserId]);
 
   const getWritePath = (id?: string) => {
-    if (!currentUserId) throw new Error('User not authenticated');
-    
     let basePath;
     // Determine the correct base path for writing.
     if (SHARED_ADMIN_PATHS.includes(path)) {
         // For shared data, all users (including admins and employees creating tickets)
-        // write to the central admin path.
+        // write to the central admin path. This is a simplification; a more robust system
+        // might use security rules to differentiate, but for this app, all shared writes go here.
         basePath = `data/${ADMIN_UID}/${path}`;
     } else {
-        // For user-specific data (like notifications), write to the user's own space.
+        // For user-specific data (like notifications), write to the current user's own space.
+        if (!currentUserId) throw new Error('User not authenticated for user-specific write');
         basePath = `data/${currentUserId}/${path}`;
     }
     return id ? `${basePath}/${id}` : basePath;
   }
+
 
   const add = (item: Omit<T, 'id'>): string => {
     const writePath = getWritePath();

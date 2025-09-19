@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useDatabaseList } from '@/hooks/use-database-list';
-import { type CustomForm, type FormEntry } from '@/types';
+import { type CustomForm, type FormEntry, type SheetDefinition, type SheetCell } from '@/types';
 import * as crypto from 'crypto-js';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { CustomFormDialog } from './_components/custom-form-dialog';
@@ -27,6 +27,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SheetCreateDialog } from './_components/sheet-create-dialog';
+import { SheetViewDialog } from './_components/sheet-view-dialog';
 
 
 const ENCRYPTION_KEY_PROMPT_KEY = 'adminonly@123';
@@ -39,17 +42,28 @@ export default function DetailsPage() {
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
   const [keyPromptOpen, setKeyPromptOpen] = useState(true);
   const [tempKey, setTempKey] = useState('');
-
   const [isClient, setIsClient] = useState(false);
+
+  // Forms State
   const [selectedForm, setSelectedForm] = useState<CustomForm | null>(null);
-  const [isFormSheetOpen, setIsFormSheetOpen] = useState(false);
+  const [isEntriesSheetOpen, setIsEntriesSheetOpen] = useState(false);
   const [editingForm, setEditingForm] = useState<CustomForm | null>(null);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [formToDelete, setFormToDelete] = useState<CustomForm | null>(null);
+  
+  // Sheets State
+  const [editingSheet, setEditingSheet] = useState<SheetDefinition | null>(null);
+  const [isSheetCreateDialogOpen, setIsSheetCreateDialogOpen] = useState(false);
+  const [sheetToDelete, setSheetToDelete] = useState<SheetDefinition | null>(null);
+  const [selectedSheet, setSelectedSheet] = useState<SheetDefinition | null>(null);
+  const [isSheetViewOpen, setIsSheetViewOpen] = useState(false);
 
 
   const { data: customForms, add: addForm, update: updateForm, removeById: deleteForm, loading: formsLoading } = useDatabaseList<CustomForm>('customForms');
   const { data: formEntries, add: addEntry, update: updateEntry, removeById: deleteEntry, loading: entriesLoading } = useDatabaseList<FormEntry>('formEntries');
+  const { data: sheets, add: addSheet, update: updateSheet, removeById: deleteSheet, loading: sheetsLoading } = useDatabaseList<SheetDefinition>('sheets');
+  const { data: sheetCells, add: addCell, update: updateCell, removeById: deleteCell, loading: cellsLoading } = useDatabaseList<SheetCell>('sheetCells');
+
 
   useEffect(() => {
     setIsClient(true);
@@ -83,9 +97,12 @@ export default function DetailsPage() {
   const decrypt = (ciphertext: string): string => {
     if (!encryptionKey) throw new Error('Encryption key not set.');
     const bytes = crypto.AES.decrypt(ciphertext, encryptionKey);
-    return bytes.toString(crypto.enc.Utf8);
+    const result = bytes.toString(crypto.enc.Utf8);
+    if (!result) throw new Error('Decryption failed: result is empty. The key might be wrong or the data corrupted.');
+    return result;
   };
-
+  
+  // --- Form Logic ---
   const handleFormSubmit = (values: Omit<CustomForm, 'id'>) => {
     if (editingForm) {
       updateForm(editingForm.id, values);
@@ -98,19 +115,18 @@ export default function DetailsPage() {
     setIsFormDialogOpen(false);
   };
   
-  const handleOpenEditDialog = (form: CustomForm) => {
+  const handleOpenEditFormDialog = (form: CustomForm) => {
     setEditingForm(form);
     setIsFormDialogOpen(true);
   }
 
-  const handleOpenNewDialog = () => {
+  const handleOpenNewFormDialog = () => {
     setEditingForm(null);
     setIsFormDialogOpen(true);
   }
 
   const handleDeleteForm = () => {
     if (!formToDelete) return;
-    // Also delete all entries associated with this form
     formEntries
       .filter(entry => entry.formId === formToDelete.id)
       .forEach(entry => deleteEntry(entry.id));
@@ -119,7 +135,56 @@ export default function DetailsPage() {
     setFormToDelete(null);
   };
   
-  const isLoading = authLoading || formsLoading || entriesLoading;
+  // --- Sheet Logic ---
+  const handleSheetSubmit = (values: Omit<SheetDefinition, 'id'>) => {
+    if (editingSheet) {
+      updateSheet(editingSheet.id, values);
+      toast({ title: 'Success', description: 'Sheet updated.' });
+    } else {
+      addSheet(values);
+      toast({ title: 'Success', description: 'Sheet created.' });
+    }
+    setEditingSheet(null);
+    setIsSheetCreateDialogOpen(false);
+  };
+  
+  const handleOpenEditSheetDialog = (sheet: SheetDefinition) => {
+    setEditingSheet(sheet);
+    setIsSheetCreateDialogOpen(true);
+  }
+  
+  const handleOpenNewSheetDialog = () => {
+    setEditingSheet(null);
+    setIsSheetCreateDialogOpen(true);
+  }
+  
+  const handleDeleteSheet = () => {
+    if (!sheetToDelete) return;
+    sheetCells
+      .filter(cell => cell.sheetId === sheetToDelete.id)
+      .forEach(cell => deleteCell(cell.id));
+    deleteSheet(sheetToDelete.id);
+    toast({ title: 'Success', description: `Sheet "${sheetToDelete.name}" and all its data have been deleted.` });
+    setSheetToDelete(null);
+  }
+
+  const handleCellChange = (sheetId: string, row: number, col: number, value: string) => {
+    const existingCell = sheetCells.find(c => c.sheetId === sheetId && c.row === row && c.col === col);
+    if (value) {
+        const encryptedValue = encrypt(value);
+        if(existingCell) {
+            updateCell(existingCell.id, { value: encryptedValue });
+        } else {
+            addCell({ sheetId, row, col, value: encryptedValue });
+        }
+    } else {
+        if(existingCell) {
+            deleteCell(existingCell.id);
+        }
+    }
+  }
+  
+  const isLoading = authLoading || formsLoading || entriesLoading || sheetsLoading || cellsLoading;
 
   if (!isClient || !user || user.role !== 'Admin') {
     return (
@@ -164,51 +229,106 @@ export default function DetailsPage() {
   
   return (
     <div className="container mx-auto space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Custom Forms</CardTitle>
-            <CardDescription>Create and manage encrypted data forms.</CardDescription>
-          </div>
-          <Button onClick={handleOpenNewDialog}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Form
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
-             </div>
-          ) : customForms.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {customForms.map((form) => (
-                <Card 
-                    key={form.id} 
-                    className="flex flex-col justify-between p-4"
-                >
-                  <div className='flex-grow cursor-pointer' onClick={() => { setSelectedForm(form); setIsFormSheetOpen(true); }}>
-                    <h3 className="font-semibold">{form.title}</h3>
-                    <p className="text-sm text-muted-foreground">{form.fields.length} fields</p>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 mt-4">
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenEditDialog(form); }}>
-                          <Edit className="h-4 w-4" />
-                      </Button>
-                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setFormToDelete(form); }}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground">No custom forms created yet.</p>
-          )}
-        </CardContent>
-      </Card>
+       <Tabs defaultValue="forms" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="forms">Forms</TabsTrigger>
+            <TabsTrigger value="sheets">Sheets</TabsTrigger>
+        </TabsList>
+        <TabsContent value="forms">
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Custom Forms</CardTitle>
+                    <CardDescription>Create and manage encrypted data forms.</CardDescription>
+                </div>
+                <Button onClick={handleOpenNewFormDialog}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Form
+                </Button>
+                </CardHeader>
+                <CardContent>
+                {isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                    </div>
+                ) : customForms.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {customForms.map((form) => (
+                        <Card 
+                            key={form.id} 
+                            className="flex flex-col justify-between p-4"
+                        >
+                        <div className='flex-grow cursor-pointer' onClick={() => { setSelectedForm(form); setIsEntriesSheetOpen(true); }}>
+                            <h3 className="font-semibold">{form.title}</h3>
+                            <p className="text-sm text-muted-foreground">{form.fields.length} fields</p>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 mt-4">
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenEditFormDialog(form); }}>
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setFormToDelete(form); }}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </div>
+                        </Card>
+                    ))}
+                    </div>
+                ) : (
+                    <p className="text-center text-muted-foreground p-4">No custom forms created yet.</p>
+                )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="sheets">
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Encrypted Sheets</CardTitle>
+                    <CardDescription>Create and manage encrypted data sheets.</CardDescription>
+                </div>
+                <Button onClick={handleOpenNewSheetDialog}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Sheet
+                </Button>
+                </CardHeader>
+                <CardContent>
+                 {isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
+                    </div>
+                ) : sheets.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {sheets.map((sheet) => (
+                        <Card 
+                            key={sheet.id} 
+                            className="flex flex-col justify-between p-4"
+                        >
+                        <div className='flex-grow cursor-pointer' onClick={() => { setSelectedSheet(sheet); setIsSheetViewOpen(true); }}>
+                            <h3 className="font-semibold">{sheet.name}</h3>
+                            <p className="text-sm text-muted-foreground">{sheet.rows} rows &times; {sheet.cols} columns</p>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 mt-4">
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenEditSheetDialog(sheet); }}>
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSheetToDelete(sheet); }}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </div>
+                        </Card>
+                    ))}
+                    </div>
+                ) : (
+                    <p className="text-center text-muted-foreground p-4">No sheets created yet.</p>
+                )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+       </Tabs>
       
+      {/* Form Dialogs */}
       <CustomFormDialog 
         isOpen={isFormDialogOpen}
         onOpenChange={setIsFormDialogOpen}
@@ -218,8 +338,8 @@ export default function DetailsPage() {
 
       {selectedForm && (
         <EntriesDialog
-          isOpen={isFormSheetOpen}
-          onOpenChange={setIsFormSheetOpen}
+          isOpen={isEntriesSheetOpen}
+          onOpenChange={setIsEntriesSheetOpen}
           form={selectedForm}
           entries={formEntries.filter(e => e.formId === selectedForm.id)}
           onAddEntry={addEntry}
@@ -247,6 +367,45 @@ export default function DetailsPage() {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Sheet Dialogs */}
+      <SheetCreateDialog
+        isOpen={isSheetCreateDialogOpen}
+        onOpenChange={setIsSheetCreateDialogOpen}
+        onSubmit={handleSheetSubmit}
+        editingSheet={editingSheet}
+      />
+
+      {selectedSheet && (
+        <SheetViewDialog
+            isOpen={isSheetViewOpen}
+            onOpenChange={setIsSheetViewOpen}
+            sheet={selectedSheet}
+            cells={sheetCells.filter(c => c.sheetId === selectedSheet.id)}
+            onCellChange={handleCellChange}
+            encrypt={encrypt}
+            decrypt={decrypt}
+        />
+      )}
+
+      <AlertDialog open={!!sheetToDelete} onOpenChange={() => setSheetToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the sheet
+                    "{sheetToDelete?.name}" and all its data.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setSheetToDelete(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteSheet} className="bg-destructive hover:bg-destructive/90">
+                    Delete
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

@@ -18,7 +18,6 @@ export interface Ticket {
 }
 
 export interface User {
-  id: string;
   name: string;
   role: 'Admin' | 'Employee';
   email?: string;
@@ -117,4 +116,20 @@ export interface Employee {
     id: string;
     name: string;
     email: string;
+}
+
+// Types for Sheets Module
+export interface SheetDefinition {
+    id: string;
+    name: string;
+    rows: number;
+    cols: number;
+}
+
+export interface SheetCell {
+    id: string;
+    sheetId: string;
+    row: number;
+    col: number;
+    value: string; // Encrypted value
 }
