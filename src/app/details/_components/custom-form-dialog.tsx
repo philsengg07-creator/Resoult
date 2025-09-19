@@ -12,9 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
-import { type CustomForm, CustomFormFieldSchema, CustomFormFieldTypeSchema } from '@/types';
+import { type CustomForm, CustomFormFieldSchema } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
   title: z.string().min(2, 'Title is required.'),
@@ -80,32 +79,6 @@ function SubFieldsArray({ control, nestIndex }: { control: Control<FormBuilderVa
                               <FormMessage />
                           </FormItem>
                           )}
-                        />
-                         <FormField
-                            control={control}
-                            name={`fields.${nestIndex}.fields.${k}.notes`}
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="text-xs">Notes</FormLabel>
-                                <FormControl>
-                                    <Textarea placeholder="Notes for this field" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={control}
-                            name={`fields.${nestIndex}.fields.${k}.attachment`}
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="text-xs">Attachment</FormLabel>
-                                <FormControl>
-                                    <Input type="file" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
                         />
                     </div>
                     <Button type="button" variant="destructive" size="icon" onClick={() => remove(k)} className="shrink-0">
