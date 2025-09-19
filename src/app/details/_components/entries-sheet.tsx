@@ -46,13 +46,14 @@ function encryptObject(obj: any, encryptFn: (text: string) => string): any {
     if (typeof obj !== 'object' || obj === null) {
       try { return encryptFn(String(obj)); } catch { return obj; }
     }
+    if (Array.isArray(obj)) {
+        return obj.map(item => encryptObject(item, encryptFn));
+    }
     const encryptedObj: Record<string, any> = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const value = obj[key];
-            if (key === 'attachment' || key === 'attachmentName') { // Do not encrypt attachment data
-                encryptedObj[key] = value;
-            } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            if (typeof value === 'object' && value !== null) {
                 encryptedObj[key] = encryptObject(value, encryptFn);
             } else if (value) {
                 encryptedObj[key] = encryptFn(String(value));
@@ -68,13 +69,14 @@ function decryptObject(obj: any, decryptFn: (text: string) => string): any {
     if (typeof obj !== 'object' || obj === null) {
         try { return decryptFn(obj); } catch { return obj; }
     }
+    if (Array.isArray(obj)) {
+        return obj.map(item => decryptObject(item, decryptFn));
+    }
     const decryptedObj: Record<string, any> = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const value = obj[key];
-            if (key === 'attachment' || key === 'attachmentName') { // Do not decrypt attachment data
-                decryptedObj[key] = value;
-            } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            if (typeof value === 'object' && value !== null) {
                 decryptedObj[key] = decryptObject(value, decryptFn);
             } else {
                  try { decryptedObj[key] = decryptFn(value); } catch { decryptedObj[key] = value; }
@@ -86,8 +88,7 @@ function decryptObject(obj: any, decryptFn: (text: string) => string): any {
 
 function checkRequiredFields(fields: CustomFormField[], data: Record<string, any>): string | null {
     for (const field of fields) {
-        const fieldData = data[field.name];
-        const value = fieldData?.value;
+        const value = data[field.name];
         if (field.type === 'group' && field.fields) {
             const nestedError = checkRequiredFields(field.fields, value || {});
             if (nestedError) return nestedError;
@@ -98,53 +99,65 @@ function checkRequiredFields(fields: CustomFormField[], data: Record<string, any
     return null;
 }
 
+type NewEntryState = {
+    data: Record<string, any>;
+    notes: string;
+    attachment: string;
+    attachmentName: string;
+};
+
 export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt, decrypt }: EntriesDialogProps) {
   const { toast } = useToast();
-  const [newEntry, setNewEntry] = useState<Record<string, any>>({});
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [editingEntryData, setEditingEntryData] = useState<Record<string, any>>({});
+  const [newEntry, setNewEntry] = useState<NewEntryState>({ data: {}, notes: '', attachment: '', attachmentName: '' });
+  const [editingEntry, setEditingEntry] = useState<FormEntry | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<FormEntry | null>(null);
 
   const getInitialValue = (field: CustomFormField): any => {
-    let baseValue;
     switch (field.type) {
-      case 'boolean': baseValue = false; break;
+      case 'boolean': return false;
       case 'group':
-        if (!field.fields) { baseValue = {}; break; }
-        baseValue = field.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {});
-        break;
-      default: baseValue = '';
+        if (!field.fields) { return {}; }
+        return field.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {});
+      default: return '';
     }
-    // For non-group fields, wrap in the new structure
-    if (field.type !== 'group') {
-        return { value: baseValue, notes: '', attachment: '', attachmentName: '' };
-    }
-    return baseValue; // Groups handle nesting recursively
   };
 
   const handleAddEntry = () => {
-    const error = checkRequiredFields(form.fields, newEntry);
+    const error = checkRequiredFields(form.fields, newEntry.data);
     if (error) {
       toast({ variant: 'destructive', title: 'Error', description: error });
       return;
     }
-    const encryptedData = encryptObject(newEntry, encrypt);
-    onAddEntry({ formId: form.id, data: encryptedData });
-    setNewEntry(form.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {}));
+    onAddEntry({
+        formId: form.id,
+        data: encryptObject(newEntry.data, encrypt),
+        notes: newEntry.notes ? encrypt(newEntry.notes) : '',
+        attachment: newEntry.attachment, // Do not encrypt attachment data URI
+        attachmentName: newEntry.attachmentName ? encrypt(newEntry.attachmentName) : '',
+    });
+    setNewEntry({
+        data: form.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {}),
+        notes: '',
+        attachment: '',
+        attachmentName: ''
+    });
     toast({ title: 'Success', description: 'New entry added.' });
   };
   
   const handleUpdateEntry = () => {
-    if (!editingEntryId) return;
-    const error = checkRequiredFields(form.fields, editingEntryData);
+    if (!editingEntry) return;
+    const error = checkRequiredFields(form.fields, editingEntry.data);
     if (error) {
       toast({ variant: 'destructive', title: 'Error', description: error });
       return;
     }
-    const encryptedData = encryptObject(editingEntryData, encrypt);
-    onUpdateEntry(editingEntryId, { data: encryptedData });
-    setEditingEntryId(null);
-    setEditingEntryData({});
+    onUpdateEntry(editingEntry.id, {
+        data: encryptObject(editingEntry.data, encrypt),
+        notes: editingEntry.notes ? encrypt(editingEntry.notes) : '',
+        attachment: editingEntry.attachment,
+        attachmentName: editingEntry.attachmentName ? encrypt(editingEntry.attachmentName) : '',
+    });
+    setEditingEntry(null);
     toast({ title: 'Success', description: 'Entry updated.' });
   }
 
@@ -156,28 +169,31 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   }
 
   const startEditing = (entry: FormEntry) => {
-    setEditingEntryId(entry.id);
     const decryptedData = decryptObject(entry.data, decrypt);
-    // Convert boolean strings to booleans
     const processedData = JSON.parse(JSON.stringify(decryptedData), (key, value) => {
         if (value === 'true') return true;
         if (value === 'false') return false;
         return value;
     });
-    setEditingEntryData(processedData);
+
+    setEditingEntry({
+        ...entry,
+        data: processedData,
+        notes: entry.notes ? decrypt(entry.notes) : '',
+        attachmentName: entry.attachmentName ? decrypt(entry.attachmentName) : '',
+    });
   }
   
   const cancelEditing = () => {
-      setEditingEntryId(null);
-      setEditingEntryData({});
+      setEditingEntry(null);
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, onChange: (val: any) => void) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, onFileChange: (data: { attachment: string, attachmentName: string }) => void) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (loadEvent) => {
-        onChange({
+        onFileChange({
           attachment: loadEvent.target?.result as string,
           attachmentName: file.name
         });
@@ -186,21 +202,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     }
   };
 
-
   const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
-    const handleValueChange = (newValue: any) => {
-      onChange({...(value || {}), value: newValue});
-    };
-    const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      onChange({...(value || {}), notes: e.target.value});
-    };
-    const handleAttachmentChange = (attachmentData: { attachment: string, attachmentName: string}) => {
-      onChange({... (value || {}), ...attachmentData});
-    };
-     const removeAttachment = () => {
-      onChange({... (value || {}), attachment: '', attachmentName: ''});
-    };
-
     if (field.type === 'group') {
         return (
              <ScrollArea className="w-full whitespace-nowrap rounded-md border">
@@ -216,86 +218,52 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
         )
     }
 
-    const fieldValue = value?.value;
-    const fieldNotes = value?.notes;
-    const fieldAttachmentName = value?.attachmentName;
-
-    let inputComponent;
     switch (field.type) {
       case 'textarea':
-        inputComponent = <Textarea placeholder={`New ${field.name}`} value={fieldValue || ''} onChange={(e) => handleValueChange(e.target.value)} rows={1} />;
-        break;
+        return <Textarea placeholder={`New ${field.name}`} value={value || ''} onChange={(e) => onChange(e.target.value)} rows={1} />;
       case 'date':
-        inputComponent = (
+        return (
           <Popover>
             <PopoverTrigger asChild>
-                <Button variant={'outline'} className={cn('w-full justify-start text-left font-normal', !fieldValue && 'text-muted-foreground')}>
+                <Button variant={'outline'} className={cn('w-full justify-start text-left font-normal', !value && 'text-muted-foreground')}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {fieldValue ? format(new Date(fieldValue), 'PPP') : <span>Pick a date</span>}
+                  {value ? format(new Date(value), 'PPP') : <span>Pick a date</span>}
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={fieldValue ? new Date(fieldValue) : undefined} onSelect={(date) => handleValueChange(date?.toISOString())} initialFocus />
+              <Calendar mode="single" selected={value ? new Date(value) : undefined} onSelect={(date) => onChange(date?.toISOString())} initialFocus />
             </PopoverContent>
           </Popover>
         );
-        break;
       case 'time':
-        inputComponent = <Input type="time" value={fieldValue || ''} onChange={(e) => handleValueChange(e.target.value)} />;
-        break;
+        return <Input type="time" value={value || ''} onChange={(e) => onChange(e.target.value)} />;
       case 'datetime':
-        inputComponent = <Input type="datetime-local" value={fieldValue || ''} onChange={(e) => handleValueChange(e.target.value)} />;
-        break;
+        return <Input type="datetime-local" value={value || ''} onChange={(e) => onChange(e.target.value)} />;
       case 'boolean':
-        inputComponent = (
-          <div className="flex items-center space-x-2">
-            <Switch id={`${field.name}-switch`} checked={fieldValue || false} onCheckedChange={handleValueChange} />
-            <Label htmlFor={`${field.name}-switch`}>{fieldValue ? 'Yes' : 'No'}</Label>
+        return (
+          <div className="flex items-center space-x-2 h-10">
+            <Switch id={`${field.name}-switch`} checked={value || false} onCheckedChange={onChange} />
+            <Label htmlFor={`${field.name}-switch`}>{value ? 'Yes' : 'No'}</Label>
           </div>
         );
-        break;
       case 'text':
       default:
-        inputComponent = <Input placeholder={`New ${field.name}`} value={fieldValue || ''} onChange={(e) => handleValueChange(e.target.value)} />;
-        break;
+        return <Input placeholder={`New ${field.name}`} value={value || ''} onChange={(e) => onChange(e.target.value)} />;
     }
-
-    return (
-        <div className="space-y-2">
-            {inputComponent}
-            <Textarea value={fieldNotes || ''} onChange={handleNotesChange} placeholder="Notes..." className="text-xs h-16"/>
-             <div className="flex items-center gap-2">
-                <Label htmlFor={`file-${field.name}`} className="flex-grow">
-                    <Button type="button" variant="outline" size="sm" asChild>
-                        <span className="w-full flex items-center cursor-pointer">
-                            <Paperclip className="mr-2 h-4 w-4" />
-                             <span className='truncate flex-1 text-left'>{fieldAttachmentName || "Attach File"}</span>
-                        </span>
-                    </Button>
-                </Label>
-                <Input id={`file-${field.name}`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, handleAttachmentChange)} />
-                {fieldAttachmentName && (
-                     <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={removeAttachment}>
-                        <X className="h-4 w-4 text-destructive" />
-                    </Button>
-                )}
-            </div>
-        </div>
-    )
   }
 
    const renderDisplayValue = (field: CustomFormField, value: any): React.ReactNode => {
-    if (value === null || value === undefined) return 'N/A';
+    const decryptedValue = decryptObject(value, decrypt);
+    if (decryptedValue === null || decryptedValue === undefined || decryptedValue === '') return <span className="text-muted-foreground">N/A</span>;
     
     if(field.type === 'group') {
-        const groupData = decryptObject(value, decrypt);
         return (
             <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex w-max space-x-4">
                     {field.fields?.map(subField => (
                         <div key={subField.name} className='text-xs w-[200px]'>
                             <strong className="font-semibold">{subField.name}:</strong>
-                            <div className="text-muted-foreground mt-1">{renderDisplayValue(subField, groupData[subField.name] ?? 'N/A')}</div>
+                            <div className="text-muted-foreground mt-1">{renderDisplayValue(subField, decryptedValue[subField.name] ?? 'N/A')}</div>
                         </div>
                     ))}
                 </div>
@@ -303,38 +271,16 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
         )
     }
 
-    const decryptedData = decryptObject(value, decrypt);
-    const mainValue = decryptedData.value;
-    const notes = decryptedData.notes;
-    const attachment = decryptedData.attachment;
-    const attachmentName = decryptedData.attachmentName;
-    
-    let displayValue;
     switch (field.type) {
         case 'boolean':
-            displayValue = mainValue === 'true' ? 'Yes' : 'No'; break;
+            return decryptedValue === 'true' ? 'Yes' : 'No';
         case 'date':
-            try { displayValue = format(new Date(mainValue), 'PPP'); } catch { displayValue = 'Invalid Date';} break;
+            try { return format(new Date(decryptedValue), 'PPP'); } catch { return 'Invalid Date';}
         case 'datetime':
-            try { displayValue = format(new Date(mainValue), 'Pp'); } catch { displayValue = 'Invalid Date';} break;
+            try { return format(new Date(decryptedValue), 'Pp'); } catch { return 'Invalid Date';}
         default:
-            displayValue = mainValue; break;
+            return decryptedValue;
     }
-
-    return (
-        <div className="space-y-2">
-            <div className="font-medium">{displayValue || 'N/A'}</div>
-            {notes && <p className="text-xs text-muted-foreground border-l-2 pl-2 italic">{notes}</p>}
-            {attachment && attachmentName && (
-                <Button variant="outline" size="sm" className="h-7" asChild>
-                    <a href={attachment} download={attachmentName}>
-                        <Download className="mr-2 h-3 w-3"/>
-                        {attachmentName}
-                    </a>
-                </Button>
-            )}
-        </div>
-    );
   };
 
   return (
@@ -354,8 +300,10 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                         <TableHeader>
                         <TableRow>
                             {form.fields.map((field) => (
-                            <TableHead key={field.name}>{field.name}</TableHead>
+                              <TableHead key={field.name}>{field.name}</TableHead>
                             ))}
+                            <TableHead>Notes</TableHead>
+                            <TableHead>Attachment</TableHead>
                             <TableHead className="w-[120px] sticky right-0 bg-background">Actions</TableHead>
                         </TableRow>
                         </TableHeader>
@@ -363,14 +311,35 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                         {/* Add New Row */}
                         <TableRow>
                             {form.fields.map((field) => (
-                            <TableCell key={field.name} className="align-top">
-                                {renderInputField(field, newEntry[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, [field.name]: val }))}
+                            <TableCell key={field.name} className="align-top min-w-[200px]">
+                                {renderInputField(field, newEntry.data[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, data: { ...newEntry.data, [field.name]: val}}))}
                             </TableCell>
                             ))}
-                            <TableCell className="sticky right-0 bg-background align-top pt-6">
-                            <Button onClick={handleAddEntry} size="sm">
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add
-                            </Button>
+                            <TableCell className="align-top min-w-[200px]">
+                                <Textarea value={newEntry.notes} onChange={(e) => setNewEntry({...newEntry, notes: e.target.value})} placeholder="Notes..."/>
+                            </TableCell>
+                            <TableCell className="align-top min-w-[200px]">
+                                 <div className="flex items-center gap-2">
+                                    <Label htmlFor={`file-new`} className="flex-grow">
+                                        <Button type="button" variant="outline" size="sm" asChild>
+                                            <span className="w-full flex items-center cursor-pointer">
+                                                <Paperclip className="mr-2 h-4 w-4" />
+                                                <span className='truncate flex-1 text-left'>{newEntry.attachmentName || "Attach File"}</span>
+                                            </span>
+                                        </Button>
+                                    </Label>
+                                    <Input id={`file-new`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setNewEntry({...newEntry, ...fileData}))} />
+                                    {newEntry.attachmentName && (
+                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setNewEntry({...newEntry, attachment: '', attachmentName: ''})}>
+                                            <X className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </TableCell>
+                            <TableCell className="sticky right-0 bg-background align-top pt-2.5">
+                                <Button onClick={handleAddEntry} size="sm">
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add
+                                </Button>
                             </TableCell>
                         </TableRow>
                         
@@ -378,19 +347,56 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                         {entries.map((entry) => (
                             <TableRow key={entry.id}>
                                 {form.fields.map((field) => {
-                                    const isEditingThisRow = editingEntryId === entry.id;
+                                    const isEditing = editingEntry?.id === entry.id;
                                     return (
-                                        <TableCell key={field.name} className='align-top'>
-                                            {isEditingThisRow ? (
-                                                renderInputField(field, editingEntryData[field.name], (val) => setEditingEntryData({...editingEntryData, [field.name]: val}))
+                                        <TableCell key={field.name} className='align-top min-w-[200px]'>
+                                            {isEditing ? (
+                                                renderInputField(field, editingEntry!.data[field.name], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [field.name]: val}}))
                                             ) : (
                                                 <div className='text-sm'>{renderDisplayValue(field, entry.data[field.name])}</div>
                                             )}
                                         </TableCell>
                                     )
                                 })}
-                            <TableCell className="flex gap-1 align-top sticky right-0 bg-background pt-6">
-                                {editingEntryId === entry.id ? (
+                                <TableCell className='align-top min-w-[200px]'>
+                                    {editingEntry?.id === entry.id ? (
+                                        <Textarea value={editingEntry.notes} onChange={(e) => setEditingEntry({...editingEntry, notes: e.target.value})} placeholder="Notes..."/>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{entry.notes ? decrypt(entry.notes) : <span className="text-muted-foreground">N/A</span>}</p>
+                                    )}
+                                </TableCell>
+                                <TableCell className='align-top min-w-[200px]'>
+                                     {editingEntry?.id === entry.id ? (
+                                        <div className="flex items-center gap-2">
+                                            <Label htmlFor={`file-${entry.id}`} className="flex-grow">
+                                                <Button type="button" variant="outline" size="sm" asChild>
+                                                    <span className="w-full flex items-center cursor-pointer">
+                                                        <Paperclip className="mr-2 h-4 w-4" />
+                                                        <span className='truncate flex-1 text-left'>{editingEntry.attachmentName || "Attach File"}</span>
+                                                    </span>
+                                                </Button>
+                                            </Label>
+                                            <Input id={`file-${entry.id}`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setEditingEntry({...editingEntry, ...fileData}))} />
+                                            {editingEntry.attachmentName && (
+                                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingEntry({...editingEntry, attachment: '', attachmentName: ''})}>
+                                                    <X className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                     ) : (
+                                        entry.attachment && entry.attachmentName ? (
+                                            <Button variant="outline" size="sm" className="h-8" asChild>
+                                                <a href={entry.attachment} download={decrypt(entry.attachmentName)}>
+                                                    <Download className="mr-2 h-3 w-3"/>
+                                                    <span className="truncate">{decrypt(entry.attachmentName)}</span>
+                                                </a>
+                                            </Button>
+                                        ) : ( <span className="text-xs text-muted-foreground">N/A</span>)
+                                     )}
+                                </TableCell>
+
+                            <TableCell className="flex gap-1 align-top sticky right-0 bg-background pt-2.5">
+                                {editingEntry?.id === entry.id ? (
                                     <>
                                         <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
                                             <Save className="h-4 w-4 text-green-600" />

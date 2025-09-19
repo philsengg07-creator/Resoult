@@ -86,20 +86,13 @@ export interface CustomForm {
     fields: CustomFormField[];
 }
 
-export interface FormEntryData {
-    value: any;
-    notes?: string;
-    attachment?: string; // base64
-    attachmentName?: string;
-}
-
 export interface FormEntry {
     id:string;
     formId: string;
-    // The data is a record where each key is a field name, 
-    // and the value is either another nested record (for groups)
-    // or a FormEntryData object for a simple field.
-    data: Record<string, FormEntryData | Record<string, any>>;
+    data: Record<string, any>; // The data is a record where each key is a field name and value is the encrypted field value
+    notes?: string; // Encrypted notes for the entire entry
+    attachment?: string; // base64 data URI for the entry's attachment
+    attachmentName?: string;
 }
 
 
