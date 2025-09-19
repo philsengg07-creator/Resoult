@@ -21,12 +21,6 @@ export default function RoleSelectionPage() {
               I am an Admin
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline" className="w-full">
-            <Link href="/login?role=Employee">
-                <User className="mr-2" />
-              I am an Employee
-            </Link>
-          </Button>
         </CardContent>
       </Card>
     </div>
