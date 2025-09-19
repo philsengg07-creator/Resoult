@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { type CustomForm, CustomFormFieldSchema, CustomFormFieldTypeSchema } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
   title: z.string().min(2, 'Title is required.'),
@@ -41,7 +42,7 @@ function SubFieldsArray({ control, nestIndex }: { control: Control<FormBuilderVa
         <div className="p-3 border rounded-md space-y-3 bg-muted/50">
             {fields.map((item, k) => (
                 <div key={item.id} className="flex items-end gap-2">
-                    <div className='flex-grow grid grid-cols-2 gap-2'>
+                    <div className='flex-grow grid grid-cols-1 gap-2'>
                         <FormField
                             control={control}
                             name={`fields.${nestIndex}.fields.${k}.name`}
@@ -56,26 +57,52 @@ function SubFieldsArray({ control, nestIndex }: { control: Control<FormBuilderVa
                             )}
                         />
                         <FormField
+                          control={control}
+                          name={`fields.${nestIndex}.fields.${k}.type`}
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel className="text-xs">Sub-field Type</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                  <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                  </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  <SelectItem value="text">Text</SelectItem>
+                                  <SelectItem value="textarea">Textarea</SelectItem>
+                                  <SelectItem value="date">Date</SelectItem>
+                                  <SelectItem value="time">Time</SelectItem>
+                                  <SelectItem value="datetime">Date & Time</SelectItem>
+                                  <SelectItem value="boolean">Yes/No</SelectItem>
+                              </SelectContent>
+                              </Select>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                        />
+                         <FormField
                             control={control}
-                            name={`fields.${nestIndex}.fields.${k}.type`}
+                            name={`fields.${nestIndex}.fields.${k}.notes`}
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel className="text-xs">Sub-field Type</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormLabel className="text-xs">Notes</FormLabel>
                                 <FormControl>
-                                    <SelectTrigger>
-                                    <SelectValue placeholder="Select type" />
-                                    </SelectTrigger>
+                                    <Textarea placeholder="Notes for this field" {...field} />
                                 </FormControl>
-                                <SelectContent>
-                                    <SelectItem value="text">Text</SelectItem>
-                                    <SelectItem value="textarea">Textarea</SelectItem>
-                                    <SelectItem value="date">Date</SelectItem>
-                                    <SelectItem value="time">Time</SelectItem>
-                                    <SelectItem value="datetime">Date & Time</SelectItem>
-                                    <SelectItem value="boolean">Yes/No</SelectItem>
-                                </SelectContent>
-                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={control}
+                            name={`fields.${nestIndex}.fields.${k}.attachment`}
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs">Attachment</FormLabel>
+                                <FormControl>
+                                    <Input type="file" {...field} />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}

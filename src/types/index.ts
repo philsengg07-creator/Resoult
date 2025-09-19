@@ -14,9 +14,11 @@ export interface Ticket {
   createdAt: string;
   status: TicketStatus;
   summary: string;
+  employeeId?: string;
 }
 
 export interface User {
+  id: string;
   name: string;
   role: 'Admin' | 'Employee';
   email?: string;
@@ -84,11 +86,22 @@ export interface CustomForm {
     fields: CustomFormField[];
 }
 
+export interface FormEntryData {
+    value: any;
+    notes?: string;
+    attachment?: string; // base64
+    attachmentName?: string;
+}
+
 export interface FormEntry {
     id:string;
     formId: string;
-    data: Record<string, any>; // Can be string for simple fields, or nested object for groups
+    // The data is a record where each key is a field name, 
+    // and the value is either another nested record (for groups)
+    // or a FormEntryData object for a simple field.
+    data: Record<string, FormEntryData | Record<string, any>>;
 }
+
 
 // Types for Work Module
 export type WorkStatus = 'Pending' | 'In Process' | 'Finished';
@@ -105,4 +118,10 @@ export interface WorkUpdate {
     workItemId: string;
     text: string;
     createdAt: string;
+}
+
+export interface Employee {
+    id: string;
+    name: string;
+    email: string;
 }
