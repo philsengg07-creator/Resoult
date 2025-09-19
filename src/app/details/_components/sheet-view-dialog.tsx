@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { type SheetDefinition, type SheetCell } from '@/types';
 
@@ -78,7 +78,7 @@ export function SheetViewDialog({ isOpen, onOpenChange, sheet, cells, onCellChan
         <div className="flex-1 overflow-hidden p-6 pt-0">
           <ScrollArea className="h-full w-full rounded-md border">
             <div className="relative p-2">
-              <table className="border-collapse table-fixed w-max">
+              <table className="border-collapse table-fixed w-full">
                 <thead>
                   <tr className='bg-background'>
                     <th className="sticky top-0 left-0 z-20 w-16 bg-muted/50 border border-border"></th>
@@ -109,6 +109,7 @@ export function SheetViewDialog({ isOpen, onOpenChange, sheet, cells, onCellChan
                 </tbody>
               </table>
             </div>
+             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
       </DialogContent>
