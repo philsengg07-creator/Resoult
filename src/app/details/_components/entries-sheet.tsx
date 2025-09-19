@@ -205,16 +205,14 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
     if (field.type === 'group') {
         return (
-             <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-                <div className="flex w-max space-x-2 p-2">
-                    {field.fields?.map(subField => (
-                        <div key={subField.name} className='space-y-1 w-[200px]'>
-                             <Label className="text-xs">{subField.name}</Label>
-                            {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
+            <div className="flex w-max space-x-2 p-2 border rounded-md bg-muted/50">
+                {field.fields?.map(subField => (
+                    <div key={subField.name} className='space-y-1 w-[200px]'>
+                        <Label className="text-xs">{subField.name}</Label>
+                        {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
+                    </div>
+                ))}
+            </div>
         )
     }
 
@@ -258,16 +256,14 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     
     if(field.type === 'group') {
         return (
-            <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex w-max space-x-4 p-1">
-                    {field.fields?.map(subField => (
-                        <div key={subField.name} className='text-xs w-[200px]'>
-                            <strong className="font-semibold">{subField.name}:</strong>
-                            <div className="text-muted-foreground mt-1">{renderDisplayValue(subField, decryptedValue[subField.name] ?? 'N/A')}</div>
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
+            <div className="flex w-max space-x-4 p-1">
+                {field.fields?.map(subField => (
+                    <div key={subField.name} className='text-xs w-[200px]'>
+                        <strong className="font-semibold">{subField.name}:</strong>
+                        <div className="text-muted-foreground mt-1">{renderDisplayValue(subField, decryptedValue[subField.name] ?? 'N/A')}</div>
+                    </div>
+                ))}
+            </div>
         )
     }
 
@@ -296,130 +292,132 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
         <div className="flex-1 overflow-hidden">
              <ScrollArea className="h-full w-full">
                 <div className="p-6">
-                    <Table>
-                        <TableHeader>
-                        <TableRow>
-                            {form.fields.map((field) => (
-                              <TableHead key={field.name}>{field.name}</TableHead>
-                            ))}
-                            <TableHead>Notes</TableHead>
-                            <TableHead>Attachment</TableHead>
-                            <TableHead className="w-[120px] sticky right-0 bg-background">Actions</TableHead>
-                        </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                        {/* Add New Row */}
-                        <TableRow>
-                            {form.fields.map((field) => (
-                            <TableCell key={field.name} className="align-top min-w-[200px]">
-                                {renderInputField(field, newEntry.data[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, data: { ...newEntry.data, [field.name]: val}}))}
-                            </TableCell>
-                            ))}
-                            <TableCell className="align-top min-w-[200px]">
-                                <Textarea value={newEntry.notes} onChange={(e) => setNewEntry({...newEntry, notes: e.target.value})} placeholder="Notes..."/>
-                            </TableCell>
-                            <TableCell className="align-top min-w-[200px]">
-                                 <div className="flex items-center gap-2">
-                                    <Label htmlFor={`file-new`} className="flex-grow">
-                                        <Button type="button" variant="outline" size="sm" asChild>
-                                            <span className="w-full flex items-center cursor-pointer">
-                                                <Paperclip className="mr-2 h-4 w-4" />
-                                                <span className='truncate flex-1 text-left'>{newEntry.attachmentName || "Attach File"}</span>
-                                            </span>
-                                        </Button>
-                                    </Label>
-                                    <Input id={`file-new`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setNewEntry({...newEntry, ...fileData}))} />
-                                    {newEntry.attachmentName && (
-                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setNewEntry({...newEntry, attachment: '', attachmentName: ''})}>
-                                            <X className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    )}
-                                </div>
-                            </TableCell>
-                            <TableCell className="sticky right-0 bg-background align-top pt-2.5">
-                                <Button onClick={handleAddEntry} size="sm">
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                        
-                        {/* Existing Entries */}
-                        {entries.map((entry) => (
-                            <TableRow key={entry.id}>
-                                {form.fields.map((field) => {
-                                    const isEditing = editingEntry?.id === entry.id;
-                                    return (
-                                        <TableCell key={field.name} className='align-top min-w-[200px]'>
-                                            {isEditing ? (
-                                                renderInputField(field, editingEntry!.data[field.name], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [field.name]: val}}))
-                                            ) : (
-                                                <div className='text-sm'>{renderDisplayValue(field, entry.data[field.name])}</div>
-                                            )}
-                                        </TableCell>
-                                    )
-                                })}
-                                <TableCell className='align-top min-w-[200px]'>
-                                    {editingEntry?.id === entry.id ? (
-                                        <Textarea value={editingEntry.notes} onChange={(e) => setEditingEntry({...editingEntry, notes: e.target.value})} placeholder="Notes..."/>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">{entry.notes ? decrypt(entry.notes) : <span className="text-muted-foreground">N/A</span>}</p>
-                                    )}
-                                </TableCell>
-                                <TableCell className='align-top min-w-[200px]'>
-                                     {editingEntry?.id === entry.id ? (
-                                        <div className="flex items-center gap-2">
-                                            <Label htmlFor={`file-${entry.id}`} className="flex-grow">
-                                                <Button type="button" variant="outline" size="sm" asChild>
-                                                    <span className="w-full flex items-center cursor-pointer">
-                                                        <Paperclip className="mr-2 h-4 w-4" />
-                                                        <span className='truncate flex-1 text-left'>{editingEntry.attachmentName || "Attach File"}</span>
-                                                    </span>
-                                                </Button>
-                                            </Label>
-                                            <Input id={`file-${entry.id}`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setEditingEntry({...editingEntry, ...fileData}))} />
-                                            {editingEntry.attachmentName && (
-                                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingEntry({...editingEntry, attachment: '', attachmentName: ''})}>
-                                                    <X className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                     ) : (
-                                        entry.attachment && entry.attachmentName ? (
-                                            <Button variant="outline" size="sm" className="h-8" asChild>
-                                                <a href={entry.attachment} download={decrypt(entry.attachmentName)}>
-                                                    <Download className="mr-2 h-3 w-3"/>
-                                                    <span className="truncate">{decrypt(entry.attachmentName)}</span>
-                                                </a>
-                                            </Button>
-                                        ) : ( <span className="text-xs text-muted-foreground">N/A</span>)
-                                     )}
-                                </TableCell>
-
-                            <TableCell className="flex gap-1 align-top sticky right-0 bg-background pt-2.5">
-                                {editingEntry?.id === entry.id ? (
-                                    <>
-                                        <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
-                                            <Save className="h-4 w-4 text-green-600" />
-                                        </Button>
-                                        <Button onClick={cancelEditing} size="icon" variant="ghost">
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Button onClick={() => startEditing(entry)} size="icon" variant="ghost">
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button onClick={() => setEntryToDelete(entry)} size="icon" variant="ghost">
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </>
-                                )}
-                            </TableCell>
+                    <div className='w-full overflow-x-auto'>
+                        <Table className='table-fixed w-full'>
+                            <TableHeader>
+                            <TableRow>
+                                {form.fields.map((field) => (
+                                <TableHead key={field.name} className="min-w-[250px]">{field.name}</TableHead>
+                                ))}
+                                <TableHead className="min-w-[250px]">Notes</TableHead>
+                                <TableHead className="min-w-[250px]">Attachment</TableHead>
+                                <TableHead className="w-[120px] sticky right-0 bg-background">Actions</TableHead>
                             </TableRow>
-                        ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                            {/* Add New Row */}
+                            <TableRow>
+                                {form.fields.map((field) => (
+                                <TableCell key={field.name} className="align-top">
+                                    {renderInputField(field, newEntry.data[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, data: { ...newEntry.data, [field.name]: val}}))}
+                                </TableCell>
+                                ))}
+                                <TableCell className="align-top">
+                                    <Textarea value={newEntry.notes} onChange={(e) => setNewEntry({...newEntry, notes: e.target.value})} placeholder="Notes..."/>
+                                </TableCell>
+                                <TableCell className="align-top">
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor={`file-new`} className="flex-grow">
+                                            <Button type="button" variant="outline" size="sm" asChild>
+                                                <span className="w-full flex items-center cursor-pointer">
+                                                    <Paperclip className="mr-2 h-4 w-4" />
+                                                    <span className='truncate flex-1 text-left'>{newEntry.attachmentName || "Attach File"}</span>
+                                                </span>
+                                            </Button>
+                                        </Label>
+                                        <Input id={`file-new`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setNewEntry({...newEntry, ...fileData}))} />
+                                        {newEntry.attachmentName && (
+                                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setNewEntry({...newEntry, attachment: '', attachmentName: ''})}>
+                                                <X className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                </TableCell>
+                                <TableCell className="sticky right-0 bg-background align-top pt-2.5">
+                                    <Button onClick={handleAddEntry} size="sm">
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Add
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                            
+                            {/* Existing Entries */}
+                            {entries.map((entry) => (
+                                <TableRow key={entry.id}>
+                                    {form.fields.map((field) => {
+                                        const isEditing = editingEntry?.id === entry.id;
+                                        return (
+                                            <TableCell key={field.name} className='align-top'>
+                                                {isEditing ? (
+                                                    renderInputField(field, editingEntry!.data[field.name], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [field.name]: val}}))
+                                                ) : (
+                                                    <div className='text-sm break-words'>{renderDisplayValue(field, entry.data[field.name])}</div>
+                                                )}
+                                            </TableCell>
+                                        )
+                                    })}
+                                    <TableCell className='align-top'>
+                                        {editingEntry?.id === entry.id ? (
+                                            <Textarea value={editingEntry.notes} onChange={(e) => setEditingEntry({...editingEntry, notes: e.target.value})} placeholder="Notes..."/>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">{entry.notes ? decrypt(entry.notes) : <span className="text-muted-foreground">N/A</span>}</p>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className='align-top'>
+                                        {editingEntry?.id === entry.id ? (
+                                            <div className="flex items-center gap-2">
+                                                <Label htmlFor={`file-${entry.id}`} className="flex-grow">
+                                                    <Button type="button" variant="outline" size="sm" asChild>
+                                                        <span className="w-full flex items-center cursor-pointer">
+                                                            <Paperclip className="mr-2 h-4 w-4" />
+                                                            <span className='truncate flex-1 text-left'>{editingEntry.attachmentName || "Attach File"}</span>
+                                                        </span>
+                                                    </Button>
+                                                </Label>
+                                                <Input id={`file-${entry.id}`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setEditingEntry({...editingEntry, ...fileData}))} />
+                                                {editingEntry.attachmentName && (
+                                                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingEntry({...editingEntry, attachment: '', attachmentName: ''})}>
+                                                        <X className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            entry.attachment && entry.attachmentName ? (
+                                                <Button variant="outline" size="sm" className="h-8" asChild>
+                                                    <a href={entry.attachment} download={decrypt(entry.attachmentName)}>
+                                                        <Download className="mr-2 h-3 w-3"/>
+                                                        <span className="truncate">{decrypt(entry.attachmentName)}</span>
+                                                    </a>
+                                                </Button>
+                                            ) : ( <span className="text-xs text-muted-foreground">N/A</span>)
+                                        )}
+                                    </TableCell>
+
+                                <TableCell className="flex gap-1 align-top sticky right-0 bg-background pt-2.5">
+                                    {editingEntry?.id === entry.id ? (
+                                        <>
+                                            <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
+                                                <Save className="h-4 w-4 text-green-600" />
+                                            </Button>
+                                            <Button onClick={cancelEditing} size="icon" variant="ghost">
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Button onClick={() => startEditing(entry)} size="icon" variant="ghost">
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button onClick={() => setEntryToDelete(entry)} size="icon" variant="ghost">
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </>
+                                    )}
+                                </TableCell>
+                                </TableRow>
+                            ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                     {entries.length === 0 && (
                         <p className="text-center text-muted-foreground p-8">No entries for this form yet.</p>
                     )}
@@ -447,3 +445,5 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     </>
   );
 }
+
+    
