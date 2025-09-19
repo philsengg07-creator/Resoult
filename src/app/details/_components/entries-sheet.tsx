@@ -205,14 +205,16 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
     if (field.type === 'group') {
         return (
-            <div className="flex w-max space-x-2 p-2 border rounded-md bg-muted/50">
-                {field.fields?.map(subField => (
-                    <div key={subField.name} className='space-y-1 w-[200px]'>
-                        <Label className="text-xs">{subField.name}</Label>
-                        {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
-                    </div>
-                ))}
-            </div>
+            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+              <div className="flex w-max space-x-2 p-2 bg-muted/50">
+                  {field.fields?.map(subField => (
+                      <div key={subField.name} className='space-y-1 w-[200px]'>
+                          <Label className="text-xs">{subField.name}</Label>
+                          {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
+                      </div>
+                  ))}
+              </div>
+            </ScrollArea>
         )
     }
 
@@ -256,14 +258,16 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     
     if(field.type === 'group') {
         return (
-            <div className="flex w-max space-x-4 p-1">
-                {field.fields?.map(subField => (
-                    <div key={subField.name} className='text-xs w-[200px]'>
-                        <strong className="font-semibold">{subField.name}:</strong>
-                        <div className="text-muted-foreground mt-1">{renderDisplayValue(subField, decryptedValue[subField.name] ?? 'N/A')}</div>
-                    </div>
-                ))}
-            </div>
+             <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                <div className="flex w-max space-x-4 p-2 text-xs">
+                    {field.fields?.map(subField => (
+                        <div key={subField.name} className='w-[200px]'>
+                            <strong className="font-semibold">{subField.name}:</strong>
+                            <div className="text-muted-foreground mt-1 whitespace-normal">{renderDisplayValue(subField, decryptedValue[subField.name] ?? 'N/A')}</div>
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
         )
     }
 
@@ -289,18 +293,18 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
             Manage the encrypted entries for this form. Data is decrypted for display only.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden p-6 pt-0">
-             <ScrollArea className="h-full w-full rounded-md border">
-                <div className="relative p-2">
-                    <Table className='w-full'>
+        <div className="flex-1 overflow-hidden">
+             <ScrollArea className="h-full w-full">
+                <div className="p-6">
+                    <Table className="w-full table-fixed">
                         <TableHeader>
                         <TableRow>
                             {form.fields.map((field) => (
-                            <TableHead key={field.name} className="min-w-[250px]">{field.name}</TableHead>
+                            <TableHead key={field.name} className="w-[250px]">{field.name}</TableHead>
                             ))}
-                            <TableHead className="min-w-[250px]">Notes</TableHead>
-                            <TableHead className="min-w-[250px]">Attachment</TableHead>
-                            <TableHead className="w-[120px] sticky right-0 bg-background">Actions</TableHead>
+                            <TableHead className="w-[250px]">Notes</TableHead>
+                            <TableHead className="w-[250px]">Attachment</TableHead>
+                            <TableHead className="w-[120px] text-right">Actions</TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -332,7 +336,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                                     )}
                                 </div>
                             </TableCell>
-                            <TableCell className="sticky right-0 bg-background align-top pt-2.5">
+                            <TableCell className="align-top pt-2.5 text-right">
                                 <Button onClick={handleAddEntry} size="sm">
                                     <PlusCircle className="mr-2 h-4 w-4" /> Add
                                 </Button>
@@ -349,7 +353,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                                             {isEditing ? (
                                                 renderInputField(field, editingEntry!.data[field.name], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [field.name]: val}}))
                                             ) : (
-                                                <div className='text-sm break-words'>{renderDisplayValue(field, entry.data[field.name])}</div>
+                                                <div className='text-sm break-words whitespace-normal'>{renderDisplayValue(field, entry.data[field.name])}</div>
                                             )}
                                         </TableCell>
                                     )
@@ -391,7 +395,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                                     )}
                                 </TableCell>
 
-                            <TableCell className="flex gap-1 align-top sticky right-0 bg-background pt-2.5">
+                            <TableCell className="flex gap-1 align-top pt-2.5 text-right">
                                 {editingEntry?.id === entry.id ? (
                                     <>
                                         <Button onClick={handleUpdateEntry} size="icon" variant="ghost">
@@ -444,4 +448,3 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   );
 }
 
-    
