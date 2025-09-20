@@ -74,6 +74,7 @@ function SubFieldsArray({ control, nestIndex }: { control: Control<FormBuilderVa
                                   <SelectItem value="time">Time</SelectItem>
                                   <SelectItem value="datetime">Date & Time</SelectItem>
                                   <SelectItem value="boolean">Yes/No</SelectItem>
+                                  <SelectItem value="attachments">Attachments</SelectItem>
                               </SelectContent>
                               </Select>
                               <FormMessage />
@@ -202,6 +203,7 @@ export function CustomFormDialog({ isOpen, onOpenChange, onSubmit, editingForm }
                                             <SelectItem value="datetime">Date & Time</SelectItem>
                                             <SelectItem value="boolean">Yes/No</SelectItem>
                                             <SelectItem value="group">Group</SelectItem>
+                                            <SelectItem value="attachments">Attachments</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />

@@ -6,9 +6,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useDatabaseList } from '@/hooks/use-database-list';
 import { type CustomForm, type FormEntry, type SheetDefinition, type SheetCell } from '@/types';
@@ -31,17 +28,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SheetCreateDialog } from './_components/sheet-create-dialog';
 import { SheetViewDialog } from './_components/sheet-view-dialog';
 
-
-const ENCRYPTION_KEY_PROMPT_KEY = 'adminonly@123';
+const ENCRYPTION_KEY = 'adminonly@123';
+const ENCRYPTION_PREFIX = 'U2FsdGVkX1';
 
 export default function DetailsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-
-  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
-  const [keyPromptOpen, setKeyPromptOpen] = useState(true);
-  const [tempKey, setTempKey] = useState('');
   const [isClient, setIsClient] = useState(false);
 
   // Forms State
@@ -72,34 +65,27 @@ export default function DetailsPage() {
   useEffect(() => {
     if (isClient && !authLoading) {
       if (!user) {
-        router.push('/role-selection');
-      } else if (user?.role === 'Employee') {
-        router.push('/tickets/new');
+        router.push('/login');
       }
     }
   }, [user, isClient, router, authLoading]);
 
-  const handleKeySubmit = () => {
-    if (tempKey === ENCRYPTION_KEY_PROMPT_KEY) {
-      setEncryptionKey(tempKey);
-      setKeyPromptOpen(false);
-      toast({ title: 'Success', description: 'Encryption key accepted.' });
-    } else {
-      toast({ variant: 'destructive', title: 'Error', description: 'Invalid encryption key.' });
-    }
-  };
-
   const encrypt = (text: string): string => {
-    if (!encryptionKey) throw new Error('Encryption key not set.');
-    return crypto.AES.encrypt(text, encryptionKey).toString();
+    if (!text || typeof text !== 'string') return text;
+    return crypto.AES.encrypt(text, ENCRYPTION_KEY).toString();
   };
 
   const decrypt = (ciphertext: string): string => {
-    if (!encryptionKey) throw new Error('Encryption key not set.');
-    const bytes = crypto.AES.decrypt(ciphertext, encryptionKey);
-    const result = bytes.toString(crypto.enc.Utf8);
-    if (!result) throw new Error('Decryption failed: result is empty. The key might be wrong or the data corrupted.');
-    return result;
+    if (!ciphertext || typeof ciphertext !== 'string' || !ciphertext.startsWith(ENCRYPTION_PREFIX)) {
+      return ciphertext;
+    }
+    try {
+        const bytes = crypto.AES.decrypt(ciphertext, ENCRYPTION_KEY);
+        const result = bytes.toString(crypto.enc.Utf8);
+        return result || ciphertext;
+    } catch (e) {
+        return ciphertext;
+    }
   };
   
   // --- Form Logic ---
@@ -192,38 +178,6 @@ export default function DetailsPage() {
             <Skeleton className="h-40 w-full" />
              <Skeleton className="h-20 w-full" />
         </div>
-    );
-  }
-
-  if (!encryptionKey) {
-    return (
-      <Dialog open={keyPromptOpen} onOpenChange={setKeyPromptOpen}>
-        <DialogContent onInteractOutside={(e) => e.preventDefault()} className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Enter Encryption Key</DialogTitle>
-            <DialogDescription>
-              You must provide the encryption key to access this module.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="key" className="text-right">
-                Key
-              </Label>
-              <Input
-                id="key"
-                type="password"
-                value={tempKey}
-                onChange={(e) => setTempKey(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={handleKeySubmit}>Submit Key</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     );
   }
   
@@ -346,7 +300,6 @@ export default function DetailsPage() {
           onUpdateEntry={updateEntry}
           onDeleteEntry={deleteEntry}
           encrypt={encrypt}
-          decrypt={decrypt}
         />
       )}
 

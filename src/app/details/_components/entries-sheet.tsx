@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, Edit, Save, X, Paperclip, Download, PlusCircle, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X, Download, PlusCircle, FileText } from 'lucide-react';
 import { type CustomForm, type FormEntry, type CustomFormField, type Attachment } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +28,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import Image from 'next/image';
 
 const ENCRYPTION_KEY = 'adminonly@123';
 const ENCRYPTION_PREFIX = 'U2FsdGVkX1';
@@ -54,19 +53,18 @@ function decryptObject(obj: any): any {
     if (typeof obj !== 'object' || obj === null) {
       return decrypt(obj);
     }
-
+    
     if (Array.isArray(obj)) {
+        // Check if it's an array of attachments
+        if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null && 'url' in obj[0] && 'name' in obj[0]) {
+             return obj.map(item => ({
+                ...item,
+                name: decrypt(item.name)
+             }));
+        }
         return obj.map(item => decryptObject(item));
     }
     
-    // special handling for attachments array
-    if (obj.url && obj.name) { // Heuristic for attachment object
-        return {
-            url: obj.url, // Don't decrypt URL
-            name: decrypt(obj.name)
-        };
-    }
-
     const decryptedObj: Record<string, any> = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -77,13 +75,14 @@ function decryptObject(obj: any): any {
     return decryptedObj;
 }
 
+
 function checkRequiredFields(fields: CustomFormField[], data: Record<string, any>): string | null {
     for (const field of fields) {
         const value = data[field.name];
         if (field.type === 'group' && field.fields) {
             const nestedError = checkRequiredFields(field.fields, value || {});
             if (nestedError) return nestedError;
-        } else if (field.type !== 'boolean' && (value === undefined || value === '')) {
+        } else if (field.type !== 'boolean' && field.type !== 'attachments' && (value === undefined || value === '')) {
             return `Field "${field.name}" is required.`;
         }
     }
@@ -119,7 +118,7 @@ function sanitizeObjectKeys(obj: any): any {
 }
 
 
-export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry }: {
+export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt }: {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     form: CustomForm;
@@ -127,6 +126,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     onAddEntry: (entry: Omit<FormEntry, 'id'>) => void;
     onUpdateEntry: (id: string, entry: Partial<FormEntry>) => void;
     onDeleteEntry: (id: string) => void;
+    encrypt: (text: string) => string;
 }) {
   const { toast } = useToast();
   const [newEntry, setNewEntry] = useState<NewEntryState>({ data: {}, notes: '', attachments: [] });
@@ -136,12 +136,40 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   const getInitialValue = (field: CustomFormField): any => {
     switch (field.type) {
       case 'boolean': return false;
+      case 'attachments': return [];
       case 'group':
         if (!field.fields) { return {}; }
         return field.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {});
       default: return '';
     }
   };
+  
+  const encryptObject = (obj: any): any => {
+    if (typeof obj !== 'object' || obj === null) {
+        // For simple fields (non-objects/arrays), encrypt directly
+        return typeof obj === 'string' ? encrypt(obj) : obj;
+    }
+    
+    if (Array.isArray(obj)) {
+       // Check if it's an array of attachments
+        if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null && 'url' in obj[0] && 'name' in obj[0]) {
+             return obj.map(item => ({
+                ...item,
+                name: encrypt(item.name)
+             }));
+        }
+        // For other arrays (e.g., in nested groups), recurse
+        return obj.map(item => encryptObject(item));
+    }
+    
+    const encryptedObj: Record<string, any> = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            encryptedObj[key] = encryptObject(obj[key]);
+        }
+    }
+    return encryptedObj;
+  }
 
   const handleAddEntry = () => {
     const error = checkRequiredFields(form.fields, newEntry.data);
@@ -152,13 +180,13 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     
     onAddEntry({
         formId: form.id,
-        data: sanitizeObjectKeys(newEntry.data),
-        notes: newEntry.notes,
-        attachments: newEntry.attachments,
+        data: encryptObject(sanitizeObjectKeys(newEntry.data)),
+        notes: encrypt(newEntry.notes),
+        attachments: encryptObject(newEntry.attachments),
     });
     
     setNewEntry({
-        data: form.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {}),
+        data: form.fields.reduce((acc, f) => ({ ...acc, [sanitizeKey(f.name)]: getInitialValue(f) }), {}),
         notes: '',
         attachments: [],
     });
@@ -174,9 +202,9 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     }
 
     onUpdateEntry(editingEntry.id, {
-        data: sanitizeObjectKeys(editingEntry.data),
-        notes: editingEntry.notes,
-        attachments: editingEntry.attachments,
+        data: encryptObject(sanitizeObjectKeys(editingEntry.data)),
+        notes: encrypt(editingEntry.notes),
+        attachments: encryptObject(editingEntry.attachments),
     });
     setEditingEntry(null);
     toast({ title: 'Success', description: 'Entry updated.' });
@@ -191,6 +219,8 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
 
   const startEditing = (entry: FormEntry) => {
     const decryptedData = decryptObject(entry.data);
+    
+    // Process booleans which are stored as strings
     const processedData = JSON.parse(JSON.stringify(decryptedData), (key, value) => {
         if (value === 'true') return true;
         if (value === 'false') return false;
@@ -235,8 +265,74 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
         setNewEntry(prev => ({...prev, attachments: prev.attachments.filter((_, i) => i !== index)}));
     }
   };
+  
+  const handleFieldAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string, isEditing: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+        const newAttachment: Attachment = {
+            name: file.name,
+            url: loadEvent.target?.result as string,
+        };
+
+        if (isEditing) {
+            setEditingEntry(prev => {
+                if (!prev) return null;
+                const currentAttachments = prev.data[fieldName] || [];
+                return {
+                    ...prev,
+                    data: {
+                        ...prev.data,
+                        [fieldName]: [...currentAttachments, newAttachment],
+                    }
+                };
+            });
+        } else {
+            setNewEntry(prev => {
+                const currentAttachments = prev.data[fieldName] || [];
+                return {
+                    ...prev,
+                    data: {
+                        ...prev.data,
+                        [fieldName]: [...currentAttachments, newAttachment],
+                    }
+                };
+            });
+        }
+    };
+    reader.readAsDataURL(file);
+};
+
+const removeFieldAttachment = (fieldName: string, index: number, isEditing: boolean) => {
+    if (isEditing) {
+        setEditingEntry(prev => {
+            if (!prev) return null;
+            const currentAttachments = prev.data[fieldName] || [];
+            return {
+                ...prev,
+                data: {
+                    ...prev.data,
+                    [fieldName]: currentAttachments.filter((_: any, i: number) => i !== index),
+                }
+            };
+        });
+    } else {
+        setNewEntry(prev => {
+            const currentAttachments = prev.data[fieldName] || [];
+            return {
+                ...prev,
+                data: {
+                    ...prev.data,
+                    [fieldName]: currentAttachments.filter((_: any, i: number) => i !== index),
+                }
+            };
+        });
+    }
+};
+
+  const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void, isEditing: boolean) => {
     if (field.type === 'group') {
         const sanitizedFieldName = sanitizeKey(field.name);
         return (
@@ -247,7 +343,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                       return (
                           <div key={sanitizedSubFieldName} className='space-y-1 w-[200px]'>
                               <Label className="text-xs">{subField.name}</Label>
-                              {renderInputField(subField, value?.[sanitizedSubFieldName], (val) => onChange({ ...value, [sanitizedSubFieldName]: val }))}
+                              {renderInputField(subField, value?.[sanitizedSubFieldName], (val) => onChange({ ...value, [sanitizedSubFieldName]: val }), isEditing)}
                           </div>
                       )
                   })}
@@ -285,6 +381,28 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
             <Label htmlFor={`${field.name}-switch`}>{value ? 'Yes' : 'No'}</Label>
           </div>
         );
+      case 'attachments': {
+            const sanitizedFieldName = sanitizeKey(field.name);
+            const attachments = (value as Attachment[]) || [];
+            const uniqueId = `file-upload-${sanitizedFieldName}-${isEditing ? 'edit' : 'new'}`;
+            return (
+                <div className="space-y-2">
+                    <Input id={uniqueId} type="file" className="hidden" onChange={(e) => handleFieldAttachmentUpload(e, sanitizedFieldName, isEditing)} />
+                    <Button type="button" variant="outline" size="sm" className='w-full' onClick={() => document.getElementById(uniqueId)?.click()}>
+                        <Plus className="mr-2 h-4 w-4" /> Add File
+                    </Button>
+                    {attachments.map((att, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm p-1 border rounded-md">
+                            <FileText className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate flex-grow">{att.name}</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFieldAttachment(sanitizedFieldName, i, isEditing)}>
+                                <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            )
+        }
       case 'text':
       default:
         return <Input placeholder={`New ${field.name}`} value={value || ''} onChange={(e) => onChange(e.target.value)} />;
@@ -292,10 +410,8 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   }
 
    const renderDisplayValue = (field: CustomFormField, value: any): React.ReactNode => {
-    const decryptedValue = decrypt(value);
-    if (decryptedValue === null || decryptedValue === undefined || decryptedValue === '') return <span className="text-muted-foreground">N/A</span>;
+    if (value === null || value === undefined || value === '') return <span className="text-muted-foreground">N/A</span>;
     
-    const sanitizedFieldName = sanitizeKey(field.name);
     if(field.type === 'group') {
         const groupData = decryptObject(value);
         return (
@@ -314,6 +430,25 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
             </ScrollArea>
         )
     }
+
+    if (field.type === 'attachments') {
+        const attachments = decryptObject(value) as Attachment[];
+        if (!attachments || attachments.length === 0) return <span className="text-muted-foreground">N/A</span>;
+        return (
+            <div className="space-y-1">
+                {attachments.map((att, i) => (
+                    <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild>
+                        <a href={att.url} download={att.name}>
+                            <Download className="mr-2 h-3 w-3"/>
+                            <span className="truncate">{att.name}</span>
+                        </a>
+                    </Button>
+                ))}
+            </div>
+        )
+    }
+    
+    const decryptedValue = decrypt(value);
 
     switch (field.type) {
         case 'boolean':
@@ -355,7 +490,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                     <TableRow>
                         {form.fields.map((field) => (
                         <TableCell key={field.name} className="align-top p-2">
-                             {renderInputField(field, newEntry.data[sanitizeKey(field.name)] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, data: { ...newEntry.data, [sanitizeKey(field.name)]: val}}))}
+                             {renderInputField(field, newEntry.data[sanitizeKey(field.name)] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, data: { ...newEntry.data, [sanitizeKey(field.name)]: val}}), false)}
                         </TableCell>
                         ))}
                         <TableCell className="align-top p-2">
@@ -393,7 +528,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                                 return (
                                     <TableCell key={sanitizedFieldName} className='align-top p-2'>
                                         {isEditing ? (
-                                            renderInputField(field, editingEntry!.data[sanitizedFieldName], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [sanitizedFieldName]: val}}))
+                                            renderInputField(field, editingEntry!.data[sanitizedFieldName], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [sanitizedFieldName]: val}}), true)
                                         ) : (
                                             <div className='text-sm break-words whitespace-normal'>{renderDisplayValue(field, entry.data[sanitizedFieldName])}</div>
                                         )}
@@ -417,7 +552,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                                         {editingEntry.attachments?.map((att, i) => (
                                             <div key={i} className="flex items-center gap-2 text-sm p-1 border rounded-md">
                                                 <FileText className="h-4 w-4 flex-shrink-0" />
-                                                <span className="truncate flex-grow">{att.name}</span>
+                                                <span className="truncate flex-grow">{decrypt(att.name)}</span>
                                                 <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAttachment(i, true)}>
                                                     <X className="h-4 w-4 text-destructive" />
                                                 </Button>

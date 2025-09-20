@@ -14,16 +14,20 @@ export interface Ticket {
   createdAt: string;
   status: TicketStatus;
   summary: string;
-  employeeId?: string;
 }
 
 export interface User {
   name: string;
-  role: 'Admin' | 'Employee';
+  role: 'Admin';
   email?: string;
 }
 
 export type TrackedItemType = 'Warranty' | 'Renewal';
+
+export interface Attachment {
+    name: string;
+    url: string; // base64 data URI
+}
 
 export interface TrackedItem {
   id: string;
@@ -34,14 +38,13 @@ export interface TrackedItem {
   amount?: number;
   vendor?: string;
   notes?: string;
-  attachment?: string; // base64 data URI
-  attachmentName?: string;
+  attachments?: Attachment[];
 }
 
 export interface AppNotification {
     id: string;
     refId: string; // ticketId or renewalId
-    type: 'ticket' | 'renewal';
+    type: 'renewal';
     message: string;
     createdAt: string;
     read: boolean;
@@ -64,7 +67,7 @@ export type PushNotificationInput = z.infer<typeof PushNotificationInputSchema>;
 
 
 // Types for Custom Encrypted Forms
-export const CustomFormFieldTypeSchema = z.enum(['text', 'textarea', 'date', 'time', 'datetime', 'boolean', 'group']);
+export const CustomFormFieldTypeSchema = z.enum(['text', 'textarea', 'date', 'time', 'datetime', 'boolean', 'group', 'attachments']);
 export type CustomFormFieldType = z.infer<typeof CustomFormFieldTypeSchema>;
 
 export const CustomFormFieldSchema: z.ZodType<CustomFormField> = z.lazy(() => z.object({
@@ -90,8 +93,7 @@ export interface FormEntry {
     formId: string;
     data: Record<string, any>; // The data is a record where each key is a field name and value is the encrypted field value
     notes?: string; // Encrypted notes for the entire entry
-    attachment?: string; // base64 data URI for the entry's attachment
-    attachmentName?: string;
+    attachments?: Attachment[];
 }
 
 
