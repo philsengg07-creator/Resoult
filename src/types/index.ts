@@ -38,13 +38,14 @@ export interface TrackedItem {
   amount?: number;
   vendor?: string;
   notes?: string;
-  attachments?: Attachment[];
+  attachment?: string;
+  attachmentName?: string;
 }
 
 export interface AppNotification {
     id: string;
     refId: string; // ticketId or renewalId
-    type: 'renewal';
+    type: 'renewal' | 'ticket';
     message: string;
     createdAt: string;
     read: boolean;
@@ -135,3 +136,5 @@ export interface SheetCell {
     col: number;
     value: string; // Encrypted value
 }
+
+    

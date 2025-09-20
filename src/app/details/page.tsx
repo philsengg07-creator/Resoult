@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useDatabaseList } from '@/hooks/use-database-list';
-import { type CustomForm, type FormEntry, type SheetDefinition, type SheetCell } from '@/types';
+import { type CustomForm, type FormEntry, type SheetDefinition, type SheetCell, CustomFormFieldTypeSchema, type CustomFormField } from '@/types';
 import * as crypto from 'crypto-js';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Upload } from 'lucide-react';
 import { CustomFormDialog } from './_components/custom-form-dialog';
 import { EntriesDialog } from './_components/entries-sheet';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SheetCreateDialog } from './_components/sheet-create-dialog';
 import { SheetViewDialog } from './_components/sheet-view-dialog';
+import * as XLSX from 'xlsx';
 
 const ENCRYPTION_KEY = 'adminonly@123';
 const ENCRYPTION_PREFIX = 'U2FsdGVkX1';
@@ -121,6 +122,77 @@ export default function DetailsPage() {
     setFormToDelete(null);
   };
   
+  const handleImportForm = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        
+        if (!sheetName) {
+            toast({ variant: 'destructive', title: 'Import Error', description: 'Excel file is empty or invalid.' });
+            return;
+        }
+
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+        if (json.length === 0) {
+          toast({ variant: 'destructive', title: 'Import Error', description: 'The first sheet in the Excel file is empty.' });
+          return;
+        }
+
+        const fields: CustomFormField[] = [];
+        let hasError = false;
+
+        json.forEach((row, index) => {
+            const fieldName = row['Field Name'];
+            const fieldType = row['Field Type'];
+
+            if (!fieldName || !fieldType) {
+                toast({ variant: 'destructive', title: 'Import Error', description: `Row ${index + 2} is missing 'Field Name' or 'Field Type'.` });
+                hasError = true;
+                return;
+            }
+            
+            const validation = CustomFormFieldTypeSchema.safeParse(fieldType);
+            if (!validation.success) {
+                toast({ variant: 'destructive', title: 'Import Error', description: `Invalid field type "${fieldType}" in row ${index + 2}.` });
+                hasError = true;
+                return;
+            }
+
+            fields.push({ name: fieldName, type: validation.data });
+        });
+
+        if (hasError) return;
+
+        if (fields.length === 0) {
+             toast({ variant: 'destructive', title: 'Import Error', description: 'No valid fields found in the Excel file.' });
+             return;
+        }
+
+        const newForm: Omit<CustomForm, 'id'> = {
+            title: sheetName,
+            fields: fields,
+        };
+
+        addForm(newForm);
+        toast({ title: 'Import Successful', description: `Form "${sheetName}" with ${fields.length} fields has been created.` });
+
+      } catch (error) {
+        console.error('Form import error:', error);
+        toast({ variant: 'destructive', title: 'Import Error', description: 'Failed to read or process the Excel file for form creation.' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = ''; // Reset file input
+  };
+  
   // --- Sheet Logic ---
   const handleSheetSubmit = (values: Omit<SheetDefinition, 'id'>) => {
     if (editingSheet) {
@@ -195,10 +267,17 @@ export default function DetailsPage() {
                     <CardTitle>Custom Forms</CardTitle>
                     <CardDescription>Create and manage encrypted data forms.</CardDescription>
                 </div>
-                <Button onClick={handleOpenNewFormDialog}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Form
-                </Button>
+                <div className='flex gap-2'>
+                    <input type="file" id="import-form-structure" className="hidden" accept=".xlsx, .xls" onChange={handleImportForm} />
+                     <Button variant="outline" onClick={() => document.getElementById('import-form-structure')?.click()}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import
+                    </Button>
+                    <Button onClick={handleOpenNewFormDialog}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        New Form
+                    </Button>
+                </div>
                 </CardHeader>
                 <CardContent>
                 {isLoading ? (
@@ -363,3 +442,5 @@ export default function DetailsPage() {
     </div>
   );
 }
+
+    
