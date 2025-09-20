@@ -27,31 +27,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentFirebaseUser) => {
       setLoading(true);
-      if (currentFirebaseUser) {
+      if (currentFirebaseUser && !currentFirebaseUser.isAnonymous) {
         setFirebaseUser(currentFirebaseUser);
-
-        // ALWAYS read from localStorage after auth state changes.
-        // This makes onAuthStateChanged the single source of truth.
-        const storedUserJSON = localStorage.getItem('user');
-        const storedUser = storedUserJSON ? JSON.parse(storedUserJSON) : null;
-        
-        if (currentFirebaseUser.isAnonymous) {
-            // For anonymous users, the name is ONLY in local storage.
-            if (storedUser?.name) {
-                setUser({ name: storedUser.name, role: 'Employee' });
-            } else {
-                // This state is inconsistent, sign out.
-                await signOut(auth);
-            }
-        } else {
-            // For registered admins, firebase profile is the source of truth.
-            const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
-            const email = currentFirebaseUser.email || undefined;
-            const adminUser = { name, email, role: 'Admin' as const };
-            setUser(adminUser);
-            localStorage.setItem('user', JSON.stringify(adminUser)); // Keep LS in sync
-        }
+        const name = currentFirebaseUser.displayName || currentFirebaseUser.email?.split('@')[0] || 'Admin';
+        const email = currentFirebaseUser.email || undefined;
+        const adminUser = { name, email, role: 'Admin' as const };
+        setUser(adminUser);
+        localStorage.setItem('user', JSON.stringify(adminUser));
       } else {
+        // If user is anonymous or doesn't exist, treat as logged out
+        if (currentFirebaseUser?.isAnonymous) {
+            await signOut(auth); // Sign out any anonymous sessions
+        }
         setUser(null);
         setFirebaseUser(null);
         localStorage.removeItem('user');
@@ -68,18 +55,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     if (!user) {
       if (!isAuthPage) {
-        router.push('/role-selection');
+        router.push('/login');
       }
-    } else {
+    } else { // User is an admin
       if (isAuthPage) {
-        router.push(user.role === 'Admin' ? '/dashboard' : '/tickets/new');
+        router.push('/dashboard');
       }
     }
   }, [user, pathname, router, loading]);
 
   const logout = useCallback(async () => {
     await signOut(auth);
-    // State will be cleared by onAuthStateChanged listener
+    // State will be cleared by onAuthStateChanged listener, which also triggers redirect
   }, []);
 
   return (

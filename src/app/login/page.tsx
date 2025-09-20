@@ -11,15 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/icons/logo';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signInAnonymously } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-
-const employeeLoginSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
-});
 
 const adminLoginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -38,18 +34,11 @@ type AdminFormValues = AdminLoginValues | AdminRegisterValues;
 
 
 function LoginPageContent() {
-  const { user } = useAuth();
-  const searchParams = useSearchParams();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const role = searchParams.get('role');
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const employeeForm = useForm<z.infer<typeof employeeLoginSchema>>({
-    resolver: zodResolver(employeeLoginSchema),
-    defaultValues: { name: '' },
-  });
 
   const adminForm = useForm<AdminFormValues>({
     resolver: zodResolver(isRegistering ? adminRegisterSchema : adminLoginSchema),
@@ -57,38 +46,14 @@ function LoginPageContent() {
   });
 
   useEffect(() => {
-    if (!role) {
-      router.push('/role-selection');
+    if (!loading && user) {
+      router.push('/dashboard');
     }
-    if (user) {
-      router.push(user.role === 'Admin' ? '/dashboard' : '/tickets/new');
-    }
-  }, [role, router, user]);
+  }, [user, loading, router]);
   
   useEffect(() => {
     adminForm.reset({ name: '', email: '', password: '' });
   }, [isRegistering, adminForm])
-
-  async function onEmployeeSubmit(values: z.infer<typeof employeeLoginSchema>) {
-    setIsSubmitting(true);
-    try {
-        localStorage.setItem('user', JSON.stringify({ name: values.name, role: 'Employee' }));
-        await signInAnonymously(auth);
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
-        // The useAuth hook will handle redirection on auth state change.
-    } catch(error: any) {
-        console.error('Anonymous sign-in error:', error);
-        toast({
-            variant: 'destructive',
-            title: 'Authentication Error',
-            description: 'Could not sign in anonymously. Please try again.',
-        });
-        setIsSubmitting(false);
-    }
-    // No need to set isSubmitting to false here if redirection is successful
-  }
 
   async function onAdminSubmit(values: AdminFormValues) {
     setIsSubmitting(true);
@@ -125,8 +90,12 @@ function LoginPageContent() {
     }
   }
 
-  if (!role) {
-    return null; // or a loading spinner
+  if (loading || user) {
+    return (
+        <div className="flex min-h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
   }
 
   return (
@@ -136,35 +105,10 @@ function LoginPageContent() {
           <Logo className="mb-4 h-12 w-12 text-primary" />
           <CardTitle>Welcome to Resolut</CardTitle>
           <CardDescription>
-            {role === 'Admin'
-              ? isRegistering ? 'Create an Admin Account' : 'Sign in as an Admin'
-              : 'Sign in as an Employee'}
+            {isRegistering ? 'Create an Admin Account' : 'Sign in as an Admin'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {role === 'Employee' ? (
-            <Form {...employeeForm}>
-              <form onSubmit={employeeForm.handleSubmit(onEmployeeSubmit)} className="space-y-6">
-                <FormField
-                  control={employeeForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Your Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Jane Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                   {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Sign In
-                </Button>
-              </form>
-            </Form>
-          ) : (
             <Form {...adminForm}>
                 <form onSubmit={adminForm.handleSubmit(onAdminSubmit)} className="space-y-4">
                  {isRegistering && (
@@ -217,7 +161,6 @@ function LoginPageContent() {
                 </Button>
                 </form>
             </Form>
-          )}
         </CardContent>
       </Card>
     </div>
