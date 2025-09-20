@@ -126,7 +126,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
       case 'attachments': return [];
       case 'group':
         if (!field.fields) { return {}; }
-        return field.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {});
+        return field.fields.reduce((acc, f) => ({ ...acc, [sanitizeKey(f.name)]: getInitialValue(f) }), {});
       default: return '';
     }
   };
@@ -501,21 +501,17 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
           return;
         }
 
-        const requiredHeaders = form.fields.map(f => f.name);
-        const fileHeaders = Object.keys(json[0]);
-        const missingHeaders = requiredHeaders.filter(h => !fileHeaders.includes(h));
-
-        if (missingHeaders.length > 0) {
-            toast({ variant: 'destructive', title: 'Import Error', description: `Missing required columns: ${missingHeaders.join(', ')}` });
-            return;
-        }
-
         json.forEach(row => {
           const entryData: Record<string, any> = {};
           form.fields.forEach(field => {
-            let value = row[field.name];
+            // Use value from row if it exists, otherwise use the default initial value for the field type
+            let value = row[field.name] !== undefined ? row[field.name] : getInitialValue(field);
+            
+            // For complex types, try to parse if it's a string from excel
             if (field.type === 'group' || field.type === 'attachments' || Array.isArray(value)) {
-                try { value = JSON.parse(value); } catch {}
+                if (typeof value === 'string') {
+                    try { value = JSON.parse(value); } catch {}
+                }
             }
             entryData[field.name] = value;
           });
@@ -717,3 +713,5 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
     </>
   );
 }
+
+    
