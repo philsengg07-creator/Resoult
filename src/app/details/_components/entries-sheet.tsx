@@ -2,11 +2,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, Edit, Save, X, Download, PlusCircle, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X, Download, PlusCircle, FileText, Upload, DownloadCloud } from 'lucide-react';
 import { type CustomForm, type FormEntry, type CustomFormField, type Attachment } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
@@ -28,30 +28,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import * as XLSX from 'xlsx';
+
 
 const ENCRYPTION_KEY = 'adminonly@123';
 const ENCRYPTION_PREFIX = 'U2FsdGVkX1';
 
-const decrypt = (ciphertext: string): string => {
-    if (!ciphertext || typeof ciphertext !== 'string') return ciphertext;
-
-    try {
-        if (ciphertext.startsWith(ENCRYPTION_PREFIX)) {
-            const CryptoJS = require('crypto-js');
-            const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
-            const result = bytes.toString(CryptoJS.enc.Utf8);
-            return result || ciphertext; // Return original if decryption results in empty string
-        }
-    } catch (e) {
-        // Fails silently and returns original text
-    }
-    return ciphertext;
-};
-
 // This function will be used to recursively decrypt object values
-function decryptObject(obj: any): any {
+function decryptObject(obj: any, decryptFn: (ciphertext: string) => string): any {
     if (typeof obj !== 'object' || obj === null) {
-      return decrypt(obj);
+        return decryptFn(obj);
     }
     
     if (Array.isArray(obj)) {
@@ -59,17 +45,17 @@ function decryptObject(obj: any): any {
         if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null && 'url' in obj[0] && 'name' in obj[0]) {
              return obj.map(item => ({
                 ...item,
-                name: decrypt(item.name)
+                name: decryptFn(item.name)
              }));
         }
-        return obj.map(item => decryptObject(item));
+        return obj.map(item => decryptObject(item, decryptFn));
     }
     
     const decryptedObj: Record<string, any> = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const value = obj[key];
-            decryptedObj[key] = decryptObject(value);
+            decryptedObj[key] = decryptObject(value, decryptFn);
         }
     }
     return decryptedObj;
@@ -118,7 +104,7 @@ function sanitizeObjectKeys(obj: any): any {
 }
 
 
-export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt }: {
+export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt, decrypt }: {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     form: CustomForm;
@@ -127,6 +113,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     onUpdateEntry: (id: string, entry: Partial<FormEntry>) => void;
     onDeleteEntry: (id: string) => void;
     encrypt: (text: string) => string;
+    decrypt: (text: string) => string;
 }) {
   const { toast } = useToast();
   const [newEntry, setNewEntry] = useState<NewEntryState>({ data: {}, notes: '', attachments: [] });
@@ -218,7 +205,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   }
 
   const startEditing = (entry: FormEntry) => {
-    const decryptedData = decryptObject(entry.data);
+    const decryptedData = decryptObject(entry.data, decrypt);
     
     // Process booleans which are stored as strings
     const processedData = JSON.parse(JSON.stringify(decryptedData), (key, value) => {
@@ -231,7 +218,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
         ...entry,
         data: processedData,
         notes: decrypt(entry.notes || ''),
-        attachments: entry.attachments ? decryptObject(entry.attachments) : [],
+        attachments: entry.attachments ? decryptObject(entry.attachments, decrypt) : [],
     });
   }
   
@@ -413,7 +400,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
     if (value === null || value === undefined || value === '') return <span className="text-muted-foreground">N/A</span>;
     
     if(field.type === 'group') {
-        const groupData = decryptObject(value);
+        const groupData = decryptObject(value, decrypt);
         return (
              <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                 <div className="flex w-max space-x-4 p-2 text-xs">
@@ -432,7 +419,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
     }
 
     if (field.type === 'attachments') {
-        const attachments = decryptObject(value) as Attachment[];
+        const attachments = decryptObject(value, decrypt) as Attachment[];
         if (!attachments || attachments.length === 0) return <span className="text-muted-foreground">N/A</span>;
         return (
             <div className="space-y-1">
@@ -462,15 +449,121 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
     }
   };
 
+  const handleExport = () => {
+    if (entries.length === 0) {
+      toast({ title: 'No Data', description: 'There are no entries to export.' });
+      return;
+    }
+    const dataToExport = entries.map(entry => {
+      const decryptedData = decryptObject(entry.data, decrypt);
+      const decryptedNotes = decrypt(entry.notes || '');
+      const flatData: Record<string, any> = {};
+
+      form.fields.forEach(field => {
+        const key = sanitizeKey(field.name);
+        const value = decryptedData[key];
+        if (field.type === 'group' || field.type === 'attachments' || Array.isArray(value)) {
+          flatData[field.name] = JSON.stringify(value);
+        } else {
+          flatData[field.name] = value;
+        }
+      });
+
+      flatData['notes'] = decryptedNotes;
+      const attachmentNames = (decryptObject(entry.attachments || [], decrypt) as Attachment[]).map(a => a.name).join(', ');
+      flatData['entry_attachments'] = attachmentNames;
+      
+      return flatData;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Entries');
+    XLSX.writeFile(workbook, `${form.title.replace(/ /g, '_')}_entries.xlsx`);
+    toast({ title: 'Success', description: 'Entries exported to Excel.' });
+  };
+  
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+        if (json.length === 0) {
+          toast({ variant: 'destructive', title: 'Import Error', description: 'Excel file is empty.' });
+          return;
+        }
+
+        const requiredHeaders = form.fields.map(f => f.name);
+        const fileHeaders = Object.keys(json[0]);
+        const missingHeaders = requiredHeaders.filter(h => !fileHeaders.includes(h));
+
+        if (missingHeaders.length > 0) {
+            toast({ variant: 'destructive', title: 'Import Error', description: `Missing required columns: ${missingHeaders.join(', ')}` });
+            return;
+        }
+
+        json.forEach(row => {
+          const entryData: Record<string, any> = {};
+          form.fields.forEach(field => {
+            let value = row[field.name];
+            if (field.type === 'group' || field.type === 'attachments' || Array.isArray(value)) {
+                try { value = JSON.parse(value); } catch {}
+            }
+            entryData[field.name] = value;
+          });
+
+          const newImportedEntry: Omit<FormEntry, 'id'> = {
+            formId: form.id,
+            data: encryptObject(sanitizeObjectKeys(entryData)),
+            notes: row['notes'] ? encrypt(row['notes']) : '',
+            attachments: [], // We don't import attachments from excel
+          };
+          onAddEntry(newImportedEntry);
+        });
+
+        toast({ title: 'Import Successful', description: `${json.length} entries have been imported.` });
+      } catch (error) {
+        console.error('Excel import error:', error);
+        toast({ variant: 'destructive', title: 'Import Error', description: 'Failed to read or process the Excel file.' });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = ''; // Reset file input
+  };
+
+
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="w-full max-w-[90vw] h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle>Entries for: {form.title}</DialogTitle>
-          <DialogDescription>
-            Manage entries for this form.
-          </DialogDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <DialogTitle>Entries for: {form.title}</DialogTitle>
+              <DialogDescription>
+                Manage entries for this form.
+              </DialogDescription>
+            </div>
+            <div className="flex gap-2">
+              <input type="file" id="import-form-excel" className="hidden" accept=".xlsx, .xls" onChange={handleImport} />
+              <Button variant="outline" size="sm" onClick={() => document.getElementById('import-form-excel')?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExport}>
+                <DownloadCloud className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
         <ScrollArea className="flex-1 w-full overflow-hidden">
             <div className="p-6">

@@ -300,6 +300,7 @@ export default function DetailsPage() {
           onUpdateEntry={updateEntry}
           onDeleteEntry={deleteEntry}
           encrypt={encrypt}
+          decrypt={decrypt}
         />
       )}
 
