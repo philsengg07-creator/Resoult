@@ -187,7 +187,7 @@ export default function DetailsPage() {
                 return;
             }
             
-            const validation = CustomFormFieldTypeSchema.safeParse(fieldType);
+            const validation = CustomFormFieldTypeSchema.safeParse(String(fieldType).trim().toLowerCase());
             if (!validation.success) {
                 toast({ variant: 'destructive', title: 'Import Error', description: `Invalid field type "${fieldType}" in row ${headerRowIndex + index + 2}.` });
                 hasError = true;
