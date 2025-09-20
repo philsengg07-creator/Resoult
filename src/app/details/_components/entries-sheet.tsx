@@ -34,10 +34,16 @@ import * as XLSX from 'xlsx';
 const ENCRYPTION_KEY = 'adminonly@123';
 const ENCRYPTION_PREFIX = 'U2FsdGVkX1';
 
+// Sanitize keys for Firebase by replacing invalid characters.
+const sanitizeKey = (key: string) => key.replace(/[.#$[\]/]/g, '-');
+
 // This function will be used to recursively decrypt object values
 function decryptObject(obj: any, decryptFn: (ciphertext: string) => string): any {
     if (typeof obj !== 'object' || obj === null) {
-        return decryptFn(obj);
+        if(typeof obj === 'string' && obj.startsWith(ENCRYPTION_PREFIX)) {
+             return decryptFn(obj);
+        }
+        return obj;
     }
     
     if (Array.isArray(obj)) {
@@ -55,7 +61,8 @@ function decryptObject(obj: any, decryptFn: (ciphertext: string) => string): any
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const value = obj[key];
-            decryptedObj[key] = decryptObject(value, decryptFn);
+            const newKey = sanitizeKey(key); // Use sanitized key for consistency
+            decryptedObj[newKey] = decryptObject(value, decryptFn);
         }
     }
     return decryptedObj;
@@ -64,7 +71,8 @@ function decryptObject(obj: any, decryptFn: (ciphertext: string) => string): any
 
 function checkRequiredFields(fields: CustomFormField[], data: Record<string, any>): string | null {
     for (const field of fields) {
-        const value = data[field.name];
+        const sanitizedName = sanitizeKey(field.name);
+        const value = data[sanitizedName];
         if (field.type === 'group' && field.fields) {
             const nestedError = checkRequiredFields(field.fields, value || {});
             if (nestedError) return nestedError;
@@ -80,9 +88,6 @@ type NewEntryState = {
     notes: string;
     attachments: Attachment[];
 };
-
-// Sanitize keys for Firebase by replacing invalid characters.
-const sanitizeKey = (key: string) => key.replace(/[.#$[\]/]/g, '-');
 
 function sanitizeObjectKeys(obj: any): any {
   if (typeof obj !== 'object' || obj === null) {
@@ -133,8 +138,8 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   
   const encryptObject = (obj: any): any => {
     if (typeof obj !== 'object' || obj === null) {
-        // For simple fields (non-objects/arrays), encrypt directly
-        return typeof obj === 'string' ? encrypt(obj) : obj;
+        // For simple fields (non-objects/arrays), encrypt directly if it's a non-empty string
+        return typeof obj === 'string' && obj.length > 0 ? encrypt(obj) : obj;
     }
     
     if (Array.isArray(obj)) {
@@ -217,7 +222,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     setEditingEntry({
         ...entry,
         data: processedData,
-        notes: decrypt(entry.notes || ''),
+        notes: entry.notes ? decrypt(entry.notes) : '',
         attachments: entry.attachments ? decryptObject(entry.attachments, decrypt) : [],
     });
   }
@@ -263,27 +268,27 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
             name: file.name,
             url: loadEvent.target?.result as string,
         };
-
+        const sanitizedFieldName = sanitizeKey(fieldName);
         if (isEditing) {
             setEditingEntry(prev => {
                 if (!prev) return null;
-                const currentAttachments = prev.data[fieldName] || [];
+                const currentAttachments = prev.data[sanitizedFieldName] || [];
                 return {
                     ...prev,
                     data: {
                         ...prev.data,
-                        [fieldName]: [...currentAttachments, newAttachment],
+                        [sanitizedFieldName]: [...currentAttachments, newAttachment],
                     }
                 };
             });
         } else {
             setNewEntry(prev => {
-                const currentAttachments = prev.data[fieldName] || [];
+                const currentAttachments = prev.data[sanitizedFieldName] || [];
                 return {
                     ...prev,
                     data: {
                         ...prev.data,
-                        [fieldName]: [...currentAttachments, newAttachment],
+                        [sanitizedFieldName]: [...currentAttachments, newAttachment],
                     }
                 };
             });
@@ -293,26 +298,27 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
 };
 
 const removeFieldAttachment = (fieldName: string, index: number, isEditing: boolean) => {
+    const sanitizedFieldName = sanitizeKey(fieldName);
     if (isEditing) {
         setEditingEntry(prev => {
             if (!prev) return null;
-            const currentAttachments = prev.data[fieldName] || [];
+            const currentAttachments = prev.data[sanitizedFieldName] || [];
             return {
                 ...prev,
                 data: {
                     ...prev.data,
-                    [fieldName]: currentAttachments.filter((_: any, i: number) => i !== index),
+                    [sanitizedFieldName]: currentAttachments.filter((_: any, i: number) => i !== index),
                 }
             };
         });
     } else {
         setNewEntry(prev => {
-            const currentAttachments = prev.data[fieldName] || [];
+            const currentAttachments = prev.data[sanitizedFieldName] || [];
             return {
                 ...prev,
                 data: {
                     ...prev.data,
-                    [fieldName]: currentAttachments.filter((_: any, i: number) => i !== index),
+                    [sanitizedFieldName]: currentAttachments.filter((_: any, i: number) => i !== index),
                 }
             };
         });
@@ -374,7 +380,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
             const uniqueId = `file-upload-${sanitizedFieldName}-${isEditing ? 'edit' : 'new'}`;
             return (
                 <div className="space-y-2">
-                    <Input id={uniqueId} type="file" className="hidden" onChange={(e) => handleFieldAttachmentUpload(e, sanitizedFieldName, isEditing)} />
+                    <Input id={uniqueId} type="file" className="hidden" onChange={(e) => handleFieldAttachmentUpload(e, field.name, isEditing)} />
                     <Button type="button" variant="outline" size="sm" className='w-full' onClick={() => document.getElementById(uniqueId)?.click()}>
                         <Plus className="mr-2 h-4 w-4" /> Add File
                     </Button>
@@ -382,7 +388,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
                         <div key={i} className="flex items-center gap-2 text-sm p-1 border rounded-md">
                             <FileText className="h-4 w-4 flex-shrink-0" />
                             <span className="truncate flex-grow">{att.name}</span>
-                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFieldAttachment(sanitizedFieldName, i, isEditing)}>
+                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFieldAttachment(field.name, i, isEditing)}>
                                 <X className="h-4 w-4 text-destructive" />
                             </Button>
                         </div>
@@ -435,11 +441,11 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
         )
     }
     
-    const decryptedValue = decrypt(value);
+    const decryptedValue = typeof value === 'string' && value.startsWith(ENCRYPTION_PREFIX) ? decrypt(value) : value;
 
     switch (field.type) {
         case 'boolean':
-            return decryptedValue === 'true' ? 'Yes' : 'No';
+            return decryptedValue === 'true' || decryptedValue === true ? 'Yes' : 'No';
         case 'date':
             try { return format(new Date(decryptedValue), 'PPP'); } catch { return 'Invalid Date';}
         case 'datetime':
@@ -456,7 +462,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
     }
     const dataToExport = entries.map(entry => {
       const decryptedData = decryptObject(entry.data, decrypt);
-      const decryptedNotes = decrypt(entry.notes || '');
+      const decryptedNotes = entry.notes ? decrypt(entry.notes) : '';
       const flatData: Record<string, any> = {};
 
       form.fields.forEach(field => {
@@ -470,7 +476,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
       });
 
       flatData['notes'] = decryptedNotes;
-      const attachmentNames = (decryptObject(entry.attachments || [], decrypt) as Attachment[]).map(a => a.name).join(', ');
+      const attachmentNames = (entry.attachments ? (decryptObject(entry.attachments, decrypt) as Attachment[]) : []).map(a => a.name).join(', ');
       flatData['entry_attachments'] = attachmentNames;
       
       return flatData;
@@ -628,7 +634,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
                                 {editingEntry?.id === entry.id ? (
                                     <Textarea value={editingEntry.notes} onChange={(e) => setEditingEntry({...editingEntry, notes: e.target.value})} placeholder="Notes..."/>
                                 ) : (
-                                    <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">{decrypt(entry.notes || '') || <span className="text-muted-foreground">N/A</span>}</p>
+                                    <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">{entry.notes ? decrypt(entry.notes) : <span className="text-muted-foreground">N/A</span>}</p>
                                 )}
                             </TableCell>
                             <TableCell className='align-top p-2 space-y-2'>
@@ -641,7 +647,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
                                         {editingEntry.attachments?.map((att, i) => (
                                             <div key={i} className="flex items-center gap-2 text-sm p-1 border rounded-md">
                                                 <FileText className="h-4 w-4 flex-shrink-0" />
-                                                <span className="truncate flex-grow">{decrypt(att.name)}</span>
+                                                <span className="truncate flex-grow">{att.name}</span>
                                                 <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAttachment(i, true)}>
                                                     <X className="h-4 w-4 text-destructive" />
                                                 </Button>
@@ -649,16 +655,17 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
                                         ))}
                                     </>
                                 ) : (
-                                    entry.attachments?.map((att, i) => (
-                                        <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild>
-                                            <a href={att.url} download={decrypt(att.name)}>
-                                                <Download className="mr-2 h-3 w-3"/>
-                                                <span className="truncate">{decrypt(att.name)}</span>
-                                            </a>
-                                        </Button>
-                                    ))
+                                    entry.attachments && entry.attachments.length > 0 ? (
+                                        entry.attachments.map((att, i) => (
+                                            <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild>
+                                                <a href={att.url} download={decrypt(att.name)}>
+                                                    <Download className="mr-2 h-3 w-3"/>
+                                                    <span className="truncate">{decrypt(att.name)}</span>
+                                                </a>
+                                            </Button>
+                                        ))
+                                    ) : <span className="text-xs text-muted-foreground">N/A</span>
                                 )}
-                                {(!entry.attachments || entry.attachments.length === 0) && editingEntry?.id !== entry.id && <span className="text-xs text-muted-foreground">N/A</span>}
                             </TableCell>
 
                         <TableCell className="flex gap-1 align-top text-right p-2 pt-4">
@@ -713,5 +720,7 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
     </>
   );
 }
+
+    
 
     
