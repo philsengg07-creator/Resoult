@@ -139,35 +139,57 @@ export default function DetailsPage() {
         }
 
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet) as any[];
+        const json = XLSX.utils.sheet_to_json(worksheet, {header: 1}) as any[][];
 
         if (json.length === 0) {
           toast({ variant: 'destructive', title: 'Import Error', description: 'The first sheet in the Excel file is empty.' });
           return;
         }
+        
+        // Find header row
+        let headerRowIndex = -1;
+        let fieldNameIndex = -1;
+        let fieldTypeIndex = -1;
 
+        for (let i = 0; i < json.length; i++) {
+            const row = json[i];
+            const tempFieldNameIndex = row.findIndex((cell: any) => String(cell).trim().toLowerCase() === 'field name');
+            const tempFieldTypeIndex = row.findIndex((cell: any) => String(cell).trim().toLowerCase() === 'field type');
+
+            if (tempFieldNameIndex !== -1 && tempFieldTypeIndex !== -1) {
+                headerRowIndex = i;
+                fieldNameIndex = tempFieldNameIndex;
+                fieldTypeIndex = tempFieldTypeIndex;
+                break;
+            }
+        }
+        
+        if (headerRowIndex === -1) {
+            toast({ variant: 'destructive', title: 'Import Error', description: "Could not find 'Field Name' and 'Field Type' columns in the Excel file." });
+            return;
+        }
+        
+        const dataRows = json.slice(headerRowIndex + 1);
         const fields: CustomFormField[] = [];
         let hasError = false;
 
-        json.forEach((row, index) => {
-            const fieldName = row['Field Name'];
-            const fieldType = row['Field Type'];
+        dataRows.forEach((row, index) => {
+            const fieldName = row[fieldNameIndex];
+            const fieldType = row[fieldTypeIndex];
 
-            // Skip empty rows silently
             if (!fieldName && !fieldType) {
                 return;
             }
             
-            // If one is present but not the other, it's an error.
             if (!fieldName || !fieldType) {
-                toast({ variant: 'destructive', title: 'Import Error', description: `Row ${index + 2} is missing 'Field Name' or 'Field Type'.` });
+                toast({ variant: 'destructive', title: 'Import Error', description: `Row ${headerRowIndex + index + 2} is missing 'Field Name' or 'Field Type'.` });
                 hasError = true;
                 return;
             }
             
             const validation = CustomFormFieldTypeSchema.safeParse(fieldType);
             if (!validation.success) {
-                toast({ variant: 'destructive', title: 'Import Error', description: `Invalid field type "${fieldType}" in row ${index + 2}.` });
+                toast({ variant: 'destructive', title: 'Import Error', description: `Invalid field type "${fieldType}" in row ${headerRowIndex + index + 2}.` });
                 hasError = true;
                 return;
             }
@@ -448,7 +470,3 @@ export default function DetailsPage() {
     </div>
   );
 }
-
-    
-
-    
