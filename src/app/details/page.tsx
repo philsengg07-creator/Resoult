@@ -153,6 +153,12 @@ export default function DetailsPage() {
             const fieldName = row['Field Name'];
             const fieldType = row['Field Type'];
 
+            // Skip empty rows silently
+            if (!fieldName && !fieldType) {
+                return;
+            }
+            
+            // If one is present but not the other, it's an error.
             if (!fieldName || !fieldType) {
                 toast({ variant: 'destructive', title: 'Import Error', description: `Row ${index + 2} is missing 'Field Name' or 'Field Type'.` });
                 hasError = true;
@@ -442,5 +448,7 @@ export default function DetailsPage() {
     </div>
   );
 }
+
+    
 
     
