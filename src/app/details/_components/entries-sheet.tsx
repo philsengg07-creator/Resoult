@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Trash2, Edit, Save, X, Paperclip, Download } from 'lucide-react';
-import { type CustomForm, type FormEntry, type CustomFormField } from '@/types';
+import { Plus, Trash2, Edit, Save, X, Paperclip, Download, PlusCircle, FileText } from 'lucide-react';
+import { type CustomForm, type FormEntry, type CustomFormField, type Attachment } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -28,59 +28,50 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import Image from 'next/image';
 
+const ENCRYPTION_KEY = 'adminonly@123';
+const ENCRYPTION_PREFIX = 'U2FsdGVkX1';
 
-interface EntriesDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  form: CustomForm;
-  entries: FormEntry[];
-  onAddEntry: (entry: Omit<FormEntry, 'id'>) => void;
-  onUpdateEntry: (id: string, entry: Partial<FormEntry>) => void;
-  onDeleteEntry: (id: string) => void;
-  encrypt: (text: string) => string;
-  decrypt: (ciphertext: string) => string;
-}
+const decrypt = (ciphertext: string): string => {
+    if (!ciphertext || typeof ciphertext !== 'string') return ciphertext;
 
-function encryptObject(obj: any, encryptFn: (text: string) => string): any {
-    if (typeof obj !== 'object' || obj === null) {
-      try { return encryptFn(String(obj)); } catch { return obj; }
-    }
-    if (Array.isArray(obj)) {
-        return obj.map(item => encryptObject(item, encryptFn));
-    }
-    const encryptedObj: Record<string, any> = {};
-    for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            const value = obj[key];
-            if (typeof value === 'object' && value !== null) {
-                encryptedObj[key] = encryptObject(value, encryptFn);
-            } else if (value) {
-                encryptedObj[key] = encryptFn(String(value));
-            } else {
-                encryptedObj[key] = value;
-            }
+    try {
+        if (ciphertext.startsWith(ENCRYPTION_PREFIX)) {
+            const CryptoJS = require('crypto-js');
+            const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
+            const result = bytes.toString(CryptoJS.enc.Utf8);
+            return result || ciphertext; // Return original if decryption results in empty string
         }
+    } catch (e) {
+        // Fails silently and returns original text
     }
-    return encryptedObj;
-}
+    return ciphertext;
+};
 
-function decryptObject(obj: any, decryptFn: (text: string) => string): any {
+// This function will be used to recursively decrypt object values
+function decryptObject(obj: any): any {
     if (typeof obj !== 'object' || obj === null) {
-        try { return decryptFn(obj); } catch { return obj; }
+      return decrypt(obj);
     }
+
     if (Array.isArray(obj)) {
-        return obj.map(item => decryptObject(item, decryptFn));
+        return obj.map(item => decryptObject(item));
     }
+    
+    // special handling for attachments array
+    if (obj.url && obj.name) { // Heuristic for attachment object
+        return {
+            url: obj.url, // Don't decrypt URL
+            name: decrypt(obj.name)
+        };
+    }
+
     const decryptedObj: Record<string, any> = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const value = obj[key];
-            if (typeof value === 'object' && value !== null) {
-                decryptedObj[key] = decryptObject(value, decryptFn);
-            } else {
-                 try { decryptedObj[key] = decryptFn(value); } catch { decryptedObj[key] = value; }
-            }
+            decryptedObj[key] = decryptObject(value);
         }
     }
     return decryptedObj;
@@ -102,13 +93,43 @@ function checkRequiredFields(fields: CustomFormField[], data: Record<string, any
 type NewEntryState = {
     data: Record<string, any>;
     notes: string;
-    attachment: string;
-    attachmentName: string;
+    attachments: Attachment[];
 };
 
-export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry, encrypt, decrypt }: EntriesDialogProps) {
+// Sanitize keys for Firebase by replacing invalid characters.
+const sanitizeKey = (key: string) => key.replace(/[.#$[\]/]/g, '-');
+
+function sanitizeObjectKeys(obj: any): any {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeObjectKeys(item));
+  }
+
+  const newObj: Record<string, any> = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const newKey = sanitizeKey(key);
+      newObj[newKey] = sanitizeObjectKeys(obj[key]);
+    }
+  }
+  return newObj;
+}
+
+
+export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry, onUpdateEntry, onDeleteEntry }: {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    form: CustomForm;
+    entries: FormEntry[];
+    onAddEntry: (entry: Omit<FormEntry, 'id'>) => void;
+    onUpdateEntry: (id: string, entry: Partial<FormEntry>) => void;
+    onDeleteEntry: (id: string) => void;
+}) {
   const { toast } = useToast();
-  const [newEntry, setNewEntry] = useState<NewEntryState>({ data: {}, notes: '', attachment: '', attachmentName: '' });
+  const [newEntry, setNewEntry] = useState<NewEntryState>({ data: {}, notes: '', attachments: [] });
   const [editingEntry, setEditingEntry] = useState<FormEntry | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<FormEntry | null>(null);
 
@@ -128,18 +149,18 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
       toast({ variant: 'destructive', title: 'Error', description: error });
       return;
     }
+    
     onAddEntry({
         formId: form.id,
-        data: encryptObject(newEntry.data, encrypt),
-        notes: newEntry.notes ? encrypt(newEntry.notes) : '',
-        attachment: newEntry.attachment, // Do not encrypt attachment data URI
-        attachmentName: newEntry.attachmentName ? encrypt(newEntry.attachmentName) : '',
+        data: sanitizeObjectKeys(newEntry.data),
+        notes: newEntry.notes,
+        attachments: newEntry.attachments,
     });
+    
     setNewEntry({
         data: form.fields.reduce((acc, f) => ({ ...acc, [f.name]: getInitialValue(f) }), {}),
         notes: '',
-        attachment: '',
-        attachmentName: ''
+        attachments: [],
     });
     toast({ title: 'Success', description: 'New entry added.' });
   };
@@ -151,11 +172,11 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
       toast({ variant: 'destructive', title: 'Error', description: error });
       return;
     }
+
     onUpdateEntry(editingEntry.id, {
-        data: encryptObject(editingEntry.data, encrypt),
-        notes: editingEntry.notes ? encrypt(editingEntry.notes) : '',
-        attachment: editingEntry.attachment,
-        attachmentName: editingEntry.attachmentName ? encrypt(editingEntry.attachmentName) : '',
+        data: sanitizeObjectKeys(editingEntry.data),
+        notes: editingEntry.notes,
+        attachments: editingEntry.attachments,
     });
     setEditingEntry(null);
     toast({ title: 'Success', description: 'Entry updated.' });
@@ -169,7 +190,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   }
 
   const startEditing = (entry: FormEntry) => {
-    const decryptedData = decryptObject(entry.data, decrypt);
+    const decryptedData = decryptObject(entry.data);
     const processedData = JSON.parse(JSON.stringify(decryptedData), (key, value) => {
         if (value === 'true') return true;
         if (value === 'false') return false;
@@ -179,8 +200,8 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     setEditingEntry({
         ...entry,
         data: processedData,
-        notes: entry.notes ? decrypt(entry.notes) : '',
-        attachmentName: entry.attachmentName ? decrypt(entry.attachmentName) : '',
+        notes: decrypt(entry.notes || ''),
+        attachments: entry.attachments ? decryptObject(entry.attachments) : [],
     });
   }
   
@@ -188,31 +209,48 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
       setEditingEntry(null);
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, onFileChange: (data: { attachment: string, attachmentName: string }) => void) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (loadEvent) => {
-        onFileChange({
-          attachment: loadEvent.target?.result as string,
-          attachmentName: file.name
-        });
+        const newAttachment: Attachment = {
+            name: file.name,
+            url: loadEvent.target?.result as string,
+        }
+        if (isEditing) {
+            setEditingEntry(prev => prev ? { ...prev, attachments: [...(prev.attachments || []), newAttachment] } : null);
+        } else {
+            setNewEntry(prev => ({...prev, attachments: [...prev.attachments, newAttachment]}));
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
+  const removeAttachment = (index: number, isEditing: boolean) => {
+    if(isEditing) {
+        setEditingEntry(prev => prev ? {...prev, attachments: prev.attachments?.filter((_, i) => i !== index)} : null)
+    } else {
+        setNewEntry(prev => ({...prev, attachments: prev.attachments.filter((_, i) => i !== index)}));
+    }
+  };
+
   const renderInputField = (field: CustomFormField, value: any, onChange: (val: any) => void) => {
     if (field.type === 'group') {
+        const sanitizedFieldName = sanitizeKey(field.name);
         return (
             <ScrollArea className="w-full whitespace-nowrap rounded-md border">
               <div className="flex w-max space-x-2 p-2 bg-muted/50">
-                  {field.fields?.map(subField => (
-                      <div key={subField.name} className='space-y-1 w-[200px]'>
-                          <Label className="text-xs">{subField.name}</Label>
-                          {renderInputField(subField, value?.[subField.name], (val) => onChange({ ...value, [subField.name]: val }))}
-                      </div>
-                  ))}
+                  {field.fields?.map(subField => {
+                      const sanitizedSubFieldName = sanitizeKey(subField.name);
+                      return (
+                          <div key={sanitizedSubFieldName} className='space-y-1 w-[200px]'>
+                              <Label className="text-xs">{subField.name}</Label>
+                              {renderInputField(subField, value?.[sanitizedSubFieldName], (val) => onChange({ ...value, [sanitizedSubFieldName]: val }))}
+                          </div>
+                      )
+                  })}
               </div>
                <ScrollBar orientation="horizontal" />
             </ScrollArea>
@@ -254,19 +292,23 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   }
 
    const renderDisplayValue = (field: CustomFormField, value: any): React.ReactNode => {
-    const decryptedValue = decryptObject(value, decrypt);
+    const decryptedValue = decrypt(value);
     if (decryptedValue === null || decryptedValue === undefined || decryptedValue === '') return <span className="text-muted-foreground">N/A</span>;
     
+    const sanitizedFieldName = sanitizeKey(field.name);
     if(field.type === 'group') {
+        const groupData = decryptObject(value);
         return (
              <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                 <div className="flex w-max space-x-4 p-2 text-xs">
-                    {field.fields?.map(subField => (
-                        <div key={subField.name} className='w-[200px]'>
+                    {field.fields?.map(subField => {
+                        const sanitizedSubFieldName = sanitizeKey(subField.name);
+                        return (
+                        <div key={sanitizedSubFieldName} className='w-[200px]'>
                             <strong className="font-semibold">{subField.name}:</strong>
-                            <div className="text-muted-foreground mt-1 whitespace-normal break-words">{renderDisplayValue(subField, decryptedValue[subField.name] ?? 'N/A')}</div>
+                            <div className="text-muted-foreground mt-1 whitespace-normal break-words">{renderDisplayValue(subField, groupData[sanitizedSubFieldName] ?? 'N/A')}</div>
                         </div>
-                    ))}
+                    )})}
                 </div>
                  <ScrollBar orientation="horizontal" />
             </ScrollArea>
@@ -281,7 +323,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
         case 'datetime':
             try { return format(new Date(decryptedValue), 'Pp'); } catch { return 'Invalid Date';}
         default:
-            return decryptedValue;
+            return String(decryptedValue);
     }
   };
 
@@ -292,7 +334,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>Entries for: {form.title}</DialogTitle>
           <DialogDescription>
-            Manage the encrypted entries for this form. Data is decrypted for display only.
+            Manage entries for this form.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="flex-1 w-full overflow-hidden">
@@ -304,7 +346,7 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                         <TableHead key={field.name} className="w-[250px]">{field.name}</TableHead>
                         ))}
                         <TableHead className="w-[250px]">Notes</TableHead>
-                        <TableHead className="w-[250px]">Attachment</TableHead>
+                        <TableHead className="w-[250px]">Attachments</TableHead>
                         <TableHead className="w-[120px] text-right">Actions</TableHead>
                     </TableRow>
                     </TableHeader>
@@ -313,29 +355,26 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                     <TableRow>
                         {form.fields.map((field) => (
                         <TableCell key={field.name} className="align-top p-2">
-                            {renderInputField(field, newEntry.data[field.name] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, data: { ...newEntry.data, [field.name]: val}}))}
+                             {renderInputField(field, newEntry.data[sanitizeKey(field.name)] ?? getInitialValue(field), (val) => setNewEntry({ ...newEntry, data: { ...newEntry.data, [sanitizeKey(field.name)]: val}}))}
                         </TableCell>
                         ))}
                         <TableCell className="align-top p-2">
                             <Textarea value={newEntry.notes} onChange={(e) => setNewEntry({...newEntry, notes: e.target.value})} placeholder="Notes..."/>
                         </TableCell>
-                        <TableCell className="align-top p-2">
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor={`file-new`} className="flex-grow">
-                                    <Button type="button" variant="outline" size="sm" asChild>
-                                        <span className="w-full flex items-center cursor-pointer">
-                                            <Paperclip className="mr-2 h-4 w-4" />
-                                            <span className='truncate flex-1 text-left'>{newEntry.attachmentName || "Attach File"}</span>
-                                        </span>
-                                    </Button>
-                                </Label>
-                                <Input id={`file-new`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setNewEntry({...newEntry, ...fileData}))} />
-                                {newEntry.attachmentName && (
-                                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setNewEntry({...newEntry, attachment: '', attachmentName: ''})}>
+                        <TableCell className="align-top p-2 space-y-2">
+                             <Input id={`file-new`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, false)} />
+                             <Button type="button" variant="outline" size="sm" className='w-full' onClick={() => document.getElementById('file-new')?.click()}>
+                                <Plus className="mr-2 h-4 w-4" /> Add Attachment
+                            </Button>
+                            {newEntry.attachments.map((att, i) => (
+                                <div key={i} className="flex items-center gap-2 text-sm p-1 border rounded-md">
+                                    <FileText className="h-4 w-4 flex-shrink-0" />
+                                    <span className="truncate flex-grow">{att.name}</span>
+                                    <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAttachment(i, false)}>
                                         <X className="h-4 w-4 text-destructive" />
                                     </Button>
-                                )}
-                            </div>
+                                </div>
+                            ))}
                         </TableCell>
                         <TableCell className="align-top text-right p-2 pt-4">
                             <Button onClick={handleAddEntry} size="sm">
@@ -349,12 +388,14 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                         <TableRow key={entry.id}>
                             {form.fields.map((field) => {
                                 const isEditing = editingEntry?.id === entry.id;
+                                const sanitizedFieldName = sanitizeKey(field.name);
+
                                 return (
-                                    <TableCell key={field.name} className='align-top p-2'>
+                                    <TableCell key={sanitizedFieldName} className='align-top p-2'>
                                         {isEditing ? (
-                                            renderInputField(field, editingEntry!.data[field.name], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [field.name]: val}}))
+                                            renderInputField(field, editingEntry!.data[sanitizedFieldName], (val) => setEditingEntry({...editingEntry!, data: {...editingEntry!.data, [sanitizedFieldName]: val}}))
                                         ) : (
-                                            <div className='text-sm break-words whitespace-normal'>{renderDisplayValue(field, entry.data[field.name])}</div>
+                                            <div className='text-sm break-words whitespace-normal'>{renderDisplayValue(field, entry.data[sanitizedFieldName])}</div>
                                         )}
                                     </TableCell>
                                 )
@@ -363,37 +404,37 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
                                 {editingEntry?.id === entry.id ? (
                                     <Textarea value={editingEntry.notes} onChange={(e) => setEditingEntry({...editingEntry, notes: e.target.value})} placeholder="Notes..."/>
                                 ) : (
-                                    <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">{entry.notes ? decrypt(entry.notes) : <span className="text-muted-foreground">N/A</span>}</p>
+                                    <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">{decrypt(entry.notes || '') || <span className="text-muted-foreground">N/A</span>}</p>
                                 )}
                             </TableCell>
-                            <TableCell className='align-top p-2'>
+                            <TableCell className='align-top p-2 space-y-2'>
                                 {editingEntry?.id === entry.id ? (
-                                    <div className="flex items-center gap-2">
-                                        <Label htmlFor={`file-${entry.id}`} className="flex-grow">
-                                            <Button type="button" variant="outline" size="sm" asChild>
-                                                <span className="w-full flex items-center cursor-pointer">
-                                                    <Paperclip className="mr-2 h-4 w-4" />
-                                                    <span className='truncate flex-1 text-left'>{editingEntry.attachmentName || "Attach File"}</span>
-                                                </span>
-                                            </Button>
-                                        </Label>
-                                        <Input id={`file-${entry.id}`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, (fileData) => setEditingEntry({...editingEntry, ...fileData}))} />
-                                        {editingEntry.attachmentName && (
-                                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingEntry({...editingEntry, attachment: '', attachmentName: ''})}>
-                                                <X className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        )}
-                                    </div>
+                                    <>
+                                        <Input id={`file-edit-${entry.id}`} type="file" className="hidden" onChange={(e) => handleFileUpload(e, true)} />
+                                        <Button type="button" variant="outline" size="sm" className='w-full' onClick={() => document.getElementById(`file-edit-${entry.id}`)?.click()}>
+                                            <Plus className="mr-2 h-4 w-4" /> Add Attachment
+                                        </Button>
+                                        {editingEntry.attachments?.map((att, i) => (
+                                            <div key={i} className="flex items-center gap-2 text-sm p-1 border rounded-md">
+                                                <FileText className="h-4 w-4 flex-shrink-0" />
+                                                <span className="truncate flex-grow">{att.name}</span>
+                                                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAttachment(i, true)}>
+                                                    <X className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </>
                                 ) : (
-                                    entry.attachment && entry.attachmentName ? (
-                                        <Button variant="outline" size="sm" className="h-8" asChild>
-                                            <a href={entry.attachment} download={decrypt(entry.attachmentName)}>
+                                    entry.attachments?.map((att, i) => (
+                                        <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild>
+                                            <a href={att.url} download={decrypt(att.name)}>
                                                 <Download className="mr-2 h-3 w-3"/>
-                                                <span className="truncate">{decrypt(entry.attachmentName)}</span>
+                                                <span className="truncate">{decrypt(att.name)}</span>
                                             </a>
                                         </Button>
-                                    ) : ( <span className="text-xs text-muted-foreground">N/A</span>)
+                                    ))
                                 )}
+                                {(!entry.attachments || entry.attachments.length === 0) && editingEntry?.id !== entry.id && <span className="text-xs text-muted-foreground">N/A</span>}
                             </TableCell>
 
                         <TableCell className="flex gap-1 align-top text-right p-2 pt-4">
@@ -448,5 +489,3 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
     </>
   );
 }
-
-    
