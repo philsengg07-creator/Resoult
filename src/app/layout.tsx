@@ -5,7 +5,6 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { AppHeader } from '@/components/app-header';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/use-auth';
-import { RenewalProvider } from '@/hooks/use-renewal-notifications';
 
 export const metadata: Metadata = {
   title: 'Resolut',
@@ -32,7 +31,6 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
-          <RenewalProvider>
             <SidebarProvider>
               <div className="flex min-h-screen w-full">
                 <AppSidebar />
@@ -42,7 +40,6 @@ export default function RootLayout({
                 </div>
               </div>
             </SidebarProvider>
-          </RenewalProvider>
         </AuthProvider>
         <Toaster />
       </body>

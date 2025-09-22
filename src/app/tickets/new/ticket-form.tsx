@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useDatabaseList } from '@/hooks/use-database-list';
-import { type Ticket, type AppNotification } from '@/types';
+import { type Ticket } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -16,7 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
-import { sendPushNotification } from '@/ai/flows/send-push-notification';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -29,7 +28,6 @@ export function TicketForm() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const { add: addTicket } = useDatabaseList<Ticket>('tickets');
-  const { add: addNotification } = useDatabaseList<AppNotification>('notifications');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -105,21 +103,7 @@ export function TicketForm() {
         newTicket.photo = photoPreview;
       }
 
-      const ticketId = addTicket(newTicket);
-
-      const newNotification: Omit<AppNotification, 'id'> = {
-        refId: ticketId,
-        type: 'ticket',
-        message: `New ticket "${summary}" from ${values.name}.`,
-        createdAt: new Date().toISOString(),
-        read: false,
-      };
-      addNotification(newNotification);
-
-      sendPushNotification({
-          title: 'New Ticket Submitted!',
-          body: `Ticket: ${summary}`
-      }).catch(console.error);
+      addTicket(newTicket);
 
       toast({
           title: 'Ticket Created!',
