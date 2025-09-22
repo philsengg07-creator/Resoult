@@ -86,15 +86,9 @@ export function RenewalProvider({ children }: { children: ReactNode }) {
 
 
   useEffect(() => {
-    // Run once on mount and then rely on interval
+    // Run once on mount to check for renewals immediately.
+    // Subsequent checks should be triggered by a scheduled job hitting the /api/process-renewals endpoint.
     checkRenewals();
-
-    // Check every hour
-    const interval = setInterval(() => {
-        checkRenewals();
-    }, 1000 * 60 * 60);
-
-    return () => clearInterval(interval);
   }, [checkRenewals]);
 
   return <RenewalContext.Provider value={undefined}>{children}</RenewalContext.Provider>;
