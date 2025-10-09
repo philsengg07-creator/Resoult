@@ -29,6 +29,12 @@ export interface Attachment {
     url: string; // base64 data URI
 }
 
+export interface Folder {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface TrackedItem {
   id: string;
   itemName: string;
@@ -40,6 +46,7 @@ export interface TrackedItem {
   notes?: string;
   attachment?: string;
   attachmentName?: string;
+  folderId?: string;
 }
 
 // Types for Custom Encrypted Forms
