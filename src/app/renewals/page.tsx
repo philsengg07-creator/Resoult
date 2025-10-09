@@ -258,7 +258,7 @@ export default function RenewalsPage() {
       amount: data.amount ?? undefined,
       vendor: data.vendor ?? '',
       notes: data.notes ?? '',
-      folderId: data.folderId || '',
+      folderId: data.folderId === 'no-folder' ? '' : data.folderId,
     };
 
     if (dialogState.mode === 'edit' && dialogState.item) {
@@ -523,14 +523,14 @@ export default function RenewalsPage() {
                                         render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Folder (optional)</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <Select onValueChange={field.onChange} value={field.value || 'no-folder'}>
                                             <FormControl>
                                                 <SelectTrigger>
                                                 <SelectValue placeholder="Select a folder" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="">No Folder</SelectItem>
+                                                <SelectItem value="no-folder">No Folder</SelectItem>
                                                 {folders.map((folder) => (
                                                 <SelectItem key={folder.id} value={folder.id}>
                                                     {folder.name}
