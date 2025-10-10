@@ -42,7 +42,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, Paperclip, FileText, Edit, Search, Eye, Folder as FolderIcon, MoreVertical, FolderPlus } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, FileText, Edit, Search, Eye, Folder as FolderIcon, MoreVertical, FolderPlus, ArrowLeft, Archive } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays, isValid } from 'date-fns';
@@ -51,12 +51,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { FolderDialog } from './_components/folder-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
 
 const renewalSchema = z.object({
   itemName: z.string().min(2, 'Item name is required.'),
@@ -89,13 +87,16 @@ export default function RenewalsPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [viewingAttachment, setViewingAttachment] = useState<{url: string; name?: string;} | null>(null);
   const [renewalToDelete, setRenewalToDelete] = useState<TrackedItem | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
   const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  
+  // New state for view management
+  const [view, setView] = useState<'folders' | 'items'>('folders');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-
+  const [folderSearch, setFolderSearch] = useState('');
+  const [itemSearch, setItemSearch] = useState('');
 
   const form = useForm<RenewalFormValues>({
     resolver: zodResolver(renewalSchema),
@@ -107,7 +108,7 @@ export default function RenewalsPage() {
       amount: undefined,
       attachment: '',
       attachmentName: '',
-      folderId: '',
+      folderId: 'no-folder',
     },
   });
   
@@ -138,12 +139,6 @@ export default function RenewalsPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
-  useEffect(() => {
-    if (form.getValues('folderId') === undefined && selectedFolderId) {
-        form.setValue('folderId', selectedFolderId);
-    }
-  }, [selectedFolderId, form]);
 
   useEffect(() => {
     if (dialogState.open && dialogState.item) {
@@ -157,7 +152,7 @@ export default function RenewalsPage() {
         notes: dialogState.item.notes ?? '',
         attachment: dialogState.item.attachment ?? '',
         attachmentName: dialogState.item.attachmentName ?? '',
-        folderId: dialogState.item.folderId ?? '',
+        folderId: dialogState.item.folderId || 'no-folder',
       });
     } else {
       form.reset({
@@ -170,7 +165,7 @@ export default function RenewalsPage() {
         notes: '',
         attachment: '',
         attachmentName: '',
-        folderId: selectedFolderId || '',
+        folderId: selectedFolderId && selectedFolderId !== 'all' && selectedFolderId !== 'unfoldered' ? selectedFolderId : 'no-folder',
       });
     }
   }, [dialogState, form, selectedFolderId]);
@@ -212,6 +207,8 @@ export default function RenewalsPage() {
         }
     }
   }, [isCameraOpen, toast]);
+  
+  const isLoading = !isClient || authLoading || renewalsLoading || foldersLoading;
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -299,7 +296,6 @@ export default function RenewalsPage() {
   const handleDeleteFolder = () => {
     if (!folderToDelete) return;
     
-    // Move items in the folder to "no folder"
     renewals.forEach(item => {
         if (item.folderId === folderToDelete.id) {
             updateRenewal(item.id, { ...item, folderId: '' });
@@ -309,9 +305,6 @@ export default function RenewalsPage() {
     deleteFolder(folderToDelete.id);
     toast({ title: 'Folder Deleted', description: `Folder "${folderToDelete.name}" has been deleted.` });
     setFolderToDelete(null);
-    if (selectedFolderId === folderToDelete.id) {
-      setSelectedFolderId(null);
-    }
   };
 
 
@@ -325,8 +318,41 @@ export default function RenewalsPage() {
     if (days === 0) return 'Today';
     return `${days} day(s)`;
   }
+  
+  const openFolder = (folderId: string) => {
+    setSelectedFolderId(folderId);
+    setView('items');
+    setItemSearch('');
+  }
 
-  const isLoading = !isClient || authLoading || renewalsLoading || foldersLoading;
+  const filteredFolders = useMemo(() => {
+    return folders.filter(folder => folder.name.toLowerCase().includes(folderSearch.toLowerCase()));
+  }, [folders, folderSearch]);
+
+  const displayedRenewals = useMemo(() => {
+    let items;
+    if (selectedFolderId === 'all') {
+        items = renewals;
+    } else if (selectedFolderId === 'unfoldered') {
+        items = renewals.filter(item => !item.folderId);
+    } else {
+        items = renewals.filter(item => item.folderId === selectedFolderId);
+    }
+    return items.filter(item => item.itemName.toLowerCase().includes(itemSearch.toLowerCase()));
+  }, [renewals, selectedFolderId, itemSearch]);
+
+  const sortedRenewals = useMemo(() => {
+    return [...displayedRenewals].sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+  }, [displayedRenewals]);
+
+  const currentFolderName = useMemo(() => {
+    if (view === 'items') {
+        if (selectedFolderId === 'all') return 'All Items';
+        if (selectedFolderId === 'unfoldered') return 'Items without a folder';
+        return folders.find(f => f.id === selectedFolderId)?.name || 'Folder';
+    }
+    return 'Renewals & Warranties';
+  }, [view, selectedFolderId, folders]);
 
   if (isLoading) {
     return (
@@ -351,20 +377,6 @@ export default function RenewalsPage() {
   if (!user || user.role !== 'Admin') {
     return null;
   }
-
-  const filteredFolders = folders.filter(folder => folder.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-  const displayedRenewals = renewals.filter(item => {
-    if (selectedFolderId) {
-      return item.folderId === selectedFolderId;
-    } else {
-      return !item.folderId && item.itemName.toLowerCase().includes(searchQuery.toLowerCase());
-    }
-  });
-
-  const sortedRenewals = [...displayedRenewals].sort(
-    (a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
-  );
   
   const dialogTitle = {
     add: 'Add New Item',
@@ -372,126 +384,154 @@ export default function RenewalsPage() {
     view: 'View Item Details',
   };
 
+  const renderFoldersView = () => (
+    <>
+      <div className="flex items-center gap-2 w-full">
+          <div className="relative w-full">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                  type="search"
+                  placeholder="Search folders..."
+                  className="pl-8"
+                  value={folderSearch}
+                  onChange={(e) => setFolderSearch(e.target.value)}
+              />
+          </div>
+          <Button onClick={() => setIsFolderDialogOpen(true)} variant="outline" className="whitespace-nowrap">
+              <FolderPlus className="mr-2 h-4 w-4" /> Folder
+          </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {/* All Items Folder */}
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openFolder('all')}>
+            <CardContent className="p-4 flex items-center gap-3">
+                <Archive className="h-6 w-6 text-muted-foreground" />
+                <span className="font-medium truncate">All Items</span>
+            </CardContent>
+        </Card>
+        
+        {/* Unfoldered Items */}
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openFolder('unfoldered')}>
+            <CardContent className="p-4 flex items-center gap-3">
+                <FolderIcon className="h-6 w-6 text-muted-foreground" />
+                <span className="font-medium truncate">Items without a folder</span>
+            </CardContent>
+        </Card>
+
+        {filteredFolders.map(folder => (
+            <Card key={folder.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openFolder(folder.id)}>
+                <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FolderIcon className="h-6 w-6 text-muted-foreground" />
+                        <span className="font-medium truncate">{folder.name}</span>
+                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                                <MoreVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingFolder(folder); setIsFolderDialogOpen(true); }}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setFolderToDelete(folder);}} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </CardContent>
+            </Card>
+        ))}
+      </div>
+      {filteredFolders.length === 0 && folderSearch && (
+         <p className="text-center text-muted-foreground">No folders match your search.</p>
+      )}
+    </>
+  );
+
+  const renderItemsView = () => (
+    <>
+      <div className="flex items-center gap-2 w-full">
+          <Button variant="outline" size="icon" onClick={() => setView('folders')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="relative w-full">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                  type="search"
+                  placeholder="Search items in this folder..."
+                  className="pl-8"
+                  value={itemSearch}
+                  onChange={(e) => setItemSearch(e.target.value)}
+              />
+          </div>
+          <Button onClick={() => handleOpenDialog('add', null)} className="whitespace-nowrap">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+          </Button>
+      </div>
+       <Table>
+          <TableHeader>
+          <TableRow>
+              <TableHead>Item Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Purchase Date</TableHead>
+              <TableHead>Expiry Date</TableHead>
+              <TableHead>Days Left</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+          </TableHeader>
+          <TableBody>
+          {sortedRenewals.length > 0 ? (
+            sortedRenewals.map((renewal) => {
+              const purchaseD = new Date(renewal.purchaseDate);
+              const expiryD = new Date(renewal.expiryDate);
+
+              return (
+                  <TableRow key={renewal.id}>
+                      <TableCell className="font-medium">{renewal.itemName}</TableCell>
+                      <TableCell>{renewal.type}</TableCell>
+                      <TableCell>{isValid(purchaseD) ? format(purchaseD, 'PPP') : 'N/A'}</TableCell>
+                      <TableCell>{isValid(expiryD) ? format(expiryD, 'PPP') : 'N/A'}</TableCell>
+                      <TableCell>{getDaysLeft(renewal.expiryDate)}</TableCell>
+                      <TableCell className="text-right space-x-0.5">
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('view', renewal)}>
+                              <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('edit', renewal)}>
+                              <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setRenewalToDelete(renewal)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                      </TableCell>
+                  </TableRow>
+              )
+            })
+          ) : (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center h-24">
+                  {itemSearch ? "No items match your search." : "This folder is empty."}
+              </TableCell>
+            </TableRow>
+          )}
+          </TableBody>
+      </Table>
+    </>
+  );
+
   return (
     <div className="container mx-auto space-y-6">
        <Card>
-        <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-                <CardTitle>Renewals & Warranties</CardTitle>
-                <CardDescription>Track warranty and renewal dates for your items.</CardDescription>
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Search folders or items..."
-                        className="pl-8"
-                        value={searchQuery}
-                        onChange={(e) => {
-                            setSearchQuery(e.target.value);
-                            if (e.target.value) setSelectedFolderId(null);
-                        }}
-                    />
-                </div>
-                <Button onClick={() => setIsFolderDialogOpen(true)} variant="outline" className="whitespace-nowrap">
-                    <FolderPlus className="mr-2 h-4 w-4" /> Folder
-                </Button>
-                <Button onClick={() => handleOpenDialog('add', null)} className="whitespace-nowrap">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Item
-                </Button>
-            </div>
+        <CardHeader>
+            <CardTitle>{currentFolderName}</CardTitle>
+            <CardDescription>
+                {view === 'folders' ? 'Select a folder to view items or add a new folder.' : `Viewing items in ${currentFolderName}.`}
+            </CardDescription>
         </CardHeader>
-        <CardContent>
-            {filteredFolders.length > 0 && (
-                <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-2">Folders</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {filteredFolders.map(folder => (
-                            <Card key={folder.id} className={cn("cursor-pointer hover:shadow-md transition-shadow", selectedFolderId === folder.id && "ring-2 ring-primary")}>
-                                <CardContent className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3" onClick={() => { setSelectedFolderId(folder.id); setSearchQuery(''); }}>
-                                        <FolderIcon className="h-6 w-6 text-muted-foreground" />
-                                        <span className="font-medium truncate">{folder.name}</span>
-                                    </div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => { setEditingFolder(folder); setIsFolderDialogOpen(true); }}>
-                                                <Edit className="mr-2 h-4 w-4" /> Edit
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFolderToDelete(folder)} className="text-destructive">
-                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-            )}
-            
-            <div className="flex items-center justify-between mb-4">
-                 <h3 className="text-lg font-semibold">
-                    {selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : 'Items without a folder'}
-                 </h3>
-                 {selectedFolderId && (
-                     <Button variant="outline" onClick={() => setSelectedFolderId(null)}>Back to all items</Button>
-                 )}
-            </div>
-            
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Item Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Purchase Date</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead>Days Left</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {sortedRenewals.length > 0 ? (
-                  sortedRenewals.map((renewal) => {
-                    const purchaseD = new Date(renewal.purchaseDate);
-                    const expiryD = new Date(renewal.expiryDate);
-
-                    return (
-                        <TableRow key={renewal.id}>
-                            <TableCell className="font-medium">{renewal.itemName}</TableCell>
-                            <TableCell>{renewal.type}</TableCell>
-                            <TableCell>{isValid(purchaseD) ? format(purchaseD, 'PPP') : 'N/A'}</TableCell>
-                            <TableCell>{isValid(expiryD) ? format(expiryD, 'PPP') : 'N/A'}</TableCell>
-                            <TableCell>{getDaysLeft(renewal.expiryDate)}</TableCell>
-                            <TableCell className="text-right space-x-0.5">
-                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('view', renewal)}>
-                                    <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog('edit', renewal)}>
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => setRenewalToDelete(renewal)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    )
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">
-                        {selectedFolderId ? "This folder is empty." : "No items match your search."}
-                    </TableCell>
-                  </TableRow>
-                )}
-                </TableBody>
-            </Table>
+        <CardContent className="space-y-4">
+          {view === 'folders' ? renderFoldersView() : renderItemsView()}
         </CardContent>
        </Card>
        
@@ -522,8 +562,8 @@ export default function RenewalsPage() {
                                         name="folderId"
                                         render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Folder (optional)</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value || 'no-folder'}>
+                                            <FormLabel>Folder</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
                                                 <SelectValue placeholder="Select a folder" />
