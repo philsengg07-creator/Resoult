@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/icons/logo';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -22,27 +22,17 @@ const adminLoginSchema = z.object({
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
-const adminRegisterSchema = z.object({
-    name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
-    email: z.string().email({ message: 'Please enter a valid email.' }),
-    password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-});
-
 type AdminLoginValues = z.infer<typeof adminLoginSchema>;
-type AdminRegisterValues = z.infer<typeof adminRegisterSchema>;
-type AdminFormValues = AdminLoginValues | AdminRegisterValues;
-
 
 function LoginPageContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isRegistering, setIsRegistering] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const adminForm = useForm<AdminFormValues>({
-    resolver: zodResolver(isRegistering ? adminRegisterSchema : adminLoginSchema),
-    defaultValues: { name: '', email: '', password: '' },
+  const adminForm = useForm<AdminLoginValues>({
+    resolver: zodResolver(adminLoginSchema),
+    defaultValues: { email: '', password: '' },
   });
 
   useEffect(() => {
@@ -51,28 +41,13 @@ function LoginPageContent() {
     }
   }, [user, loading, router]);
   
-  useEffect(() => {
-    adminForm.reset({ name: '', email: '', password: '' });
-  }, [isRegistering, adminForm])
-
-  async function onAdminSubmit(values: AdminFormValues) {
+  async function onAdminSubmit(values: AdminLoginValues) {
     setIsSubmitting(true);
     try {
-        let userCredential;
-        if(isRegistering) {
-            const registerValues = values as AdminRegisterValues;
-            userCredential = await createUserWithEmailAndPassword(auth, registerValues.email, registerValues.password);
-            await updateProfile(userCredential.user, { displayName: registerValues.name });
-            const adminUser = { name: registerValues.name, role: 'Admin' as const, email: registerValues.email };
-            localStorage.setItem('user', JSON.stringify(adminUser));
-
-        } else {
-            const loginValues = values as AdminLoginValues;
-            userCredential = await signInWithEmailAndPassword(auth, loginValues.email, loginValues.password);
-            const name = userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Admin';
-            const adminUser = { name, role: 'Admin' as const, email: userCredential.user.email ?? undefined };
-            localStorage.setItem('user', JSON.stringify(adminUser));
-        }
+        const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+        const name = userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Admin';
+        const adminUser = { name, role: 'Admin' as const, email: userCredential.user.email ?? undefined };
+        localStorage.setItem('user', JSON.stringify(adminUser));
 
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
           Notification.requestPermission();
@@ -105,27 +80,12 @@ function LoginPageContent() {
           <Logo className="mb-4 h-12 w-12 text-primary" />
           <CardTitle>Welcome to Resolut</CardTitle>
           <CardDescription>
-            {isRegistering ? 'Create an Admin Account' : 'Sign in as an Admin'}
+            Sign in as an Admin
           </CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...adminForm}>
                 <form onSubmit={adminForm.handleSubmit(onAdminSubmit)} className="space-y-4">
-                 {isRegistering && (
-                     <FormField
-                        control={adminForm.control}
-                        name="name"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                                <Input placeholder="e.g. John Smith" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                 )}
                  <FormField
                     control={adminForm.control}
                     name="email"
@@ -154,10 +114,7 @@ function LoginPageContent() {
                     />
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isRegistering ? 'Create Account' : 'Sign In'}
-                </Button>
-                <Button type="button" variant="link" className="w-full" onClick={() => setIsRegistering(!isRegistering)}>
-                    {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Create one"}
+                    Sign In
                 </Button>
                 </form>
             </Form>
