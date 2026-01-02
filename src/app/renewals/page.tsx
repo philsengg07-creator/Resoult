@@ -44,7 +44,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, FileText, Edit, Search, Eye, Folder as FolderIcon, MoreVertical, FolderPlus, ArrowLeft, Archive, FileSpreadsheet } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { format, differenceInDays, isValid } from 'date-fns';
+import { format, differenceInDays, isValid, getYear } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
@@ -56,6 +56,7 @@ import { FolderDialog } from './_components/folder-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import * as XLSX from 'xlsx';
+import { YearlyReportDialog } from './_components/yearly-report-dialog';
 
 const renewalSchema = z.object({
   itemName: z.string().min(2, 'Item name is required.'),
@@ -93,12 +94,13 @@ export default function RenewalsPage() {
   const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   
-  // New state for view management
   const [view, setView] = useState<'folders' | 'items'>('folders');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [folderSearch, setFolderSearch] = useState('');
   const [itemSearch, setItemSearch] = useState('');
   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
+  
+  const [isYearlyReportDialogOpen, setIsYearlyReportDialogOpen] = useState(false);
 
 
   const form = useForm<RenewalFormValues>({
@@ -402,7 +404,6 @@ export default function RenewalsPage() {
         };
     });
 
-    // Add total row
     const totalRow = {
         'Detail': 'Gross Total Rs',
         'Amount': `${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`
@@ -412,25 +413,21 @@ export default function RenewalsPage() {
         header: ['Sr. No.', 'Date of Purchase', 'Department', 'Location', 'Detail', 'Vendor name', 'Amount', 'Release'],
     });
 
-    // Manually add the title
     XLSX.utils.sheet_add_aoa(ws, [['Request for payment release']], { origin: 'D1' });
     
-    // Add data rows starting from A3 to leave a blank row after title.
     XLSX.utils.sheet_add_json(ws, data, {
         skipHeader: true,
         origin: 'A3',
     });
 
-    // Append the total row
     XLSX.utils.sheet_add_json(ws, [totalRow], {
         header: ['Detail', 'Amount'],
         skipHeader: true,
         origin: -1,
     });
     
-    // Style the title
     if (ws['D1']) {
-      ws['!merges'] = [{ s: { r: 0, c: 3 }, e: { r: 0, c: 6 } }]; // Merge title cells
+      ws['!merges'] = [{ s: { r: 0, c: 3 }, e: { r: 0, c: 6 } }];
     }
     
     const wb = XLSX.utils.book_new();
@@ -438,6 +435,34 @@ export default function RenewalsPage() {
     XLSX.writeFile(wb, 'Payment_Request.xlsx');
 
     toast({ title: 'Report Generated', description: 'The payment request has been exported.' });
+  };
+  
+  const handleGenerateYearlyReport = (year: number) => {
+    const itemsForYear = renewals.filter(item => {
+        const expiryDate = new Date(item.expiryDate);
+        return isValid(expiryDate) && getYear(expiryDate) === year;
+    });
+
+    if (itemsForYear.length === 0) {
+        toast({ title: 'No Data', description: `No items found with an expiry year of ${year}.` });
+        return;
+    }
+
+    const data = itemsForYear.map(item => ({
+        'Item Name': item.itemName,
+        'Type': item.type,
+        'Purchase Date': isValid(new Date(item.purchaseDate)) ? format(new Date(item.purchaseDate), 'PPP') : 'N/A',
+        'Expiry Date': isValid(new Date(item.expiryDate)) ? format(new Date(item.expiryDate), 'PPP') : 'N/A',
+        'Vendor': item.vendor ?? 'N/A',
+        'Amount': item.amount ?? '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Renewals ${year}`);
+    XLSX.writeFile(wb, `Renewals_Report_${year}.xlsx`);
+
+    toast({ title: 'Yearly Report Generated', description: `Report for ${year} has been exported.` });
   };
 
 
@@ -473,8 +498,8 @@ export default function RenewalsPage() {
 
   const renderFoldersView = () => (
     <>
-      <div className="flex items-center gap-2 w-full">
-          <div className="relative w-full">
+      <div className="flex flex-wrap items-center gap-2 w-full">
+          <div className="relative flex-grow min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                   type="search"
@@ -484,9 +509,14 @@ export default function RenewalsPage() {
                   onChange={(e) => setFolderSearch(e.target.value)}
               />
           </div>
-          <Button onClick={() => setIsFolderDialogOpen(true)} variant="outline" className="whitespace-nowrap">
-              <FolderPlus className="mr-2 h-4 w-4" /> Folder
-          </Button>
+           <div className="flex gap-2">
+            <Button onClick={() => setIsFolderDialogOpen(true)} variant="outline" className="whitespace-nowrap">
+                <FolderPlus className="mr-2 h-4 w-4" /> Folder
+            </Button>
+            <Button onClick={() => setIsYearlyReportDialogOpen(true)} variant="outline" className="whitespace-nowrap">
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Yearly Report
+            </Button>
+           </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -624,6 +654,7 @@ export default function RenewalsPage() {
   );
 
   return (
+    <>
     <div className="container mx-auto space-y-6">
        <Card>
         <CardHeader>
@@ -986,6 +1017,13 @@ export default function RenewalsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <YearlyReportDialog
+        isOpen={isYearlyReportDialogOpen}
+        onOpenChange={setIsYearlyReportDialogOpen}
+        onSubmit={handleGenerateYearlyReport}
+      />
     </div>
+    </>
   );
 }
