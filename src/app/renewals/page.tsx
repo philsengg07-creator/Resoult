@@ -448,18 +448,38 @@ export default function RenewalsPage() {
         return;
     }
 
-    const data = itemsForYear.map(item => ({
-        'Item Name': item.itemName,
-        'Type': item.type,
-        'Purchase Date': isValid(new Date(item.purchaseDate)) ? format(new Date(item.purchaseDate), 'PPP') : 'N/A',
-        'Expiry Date': isValid(new Date(item.expiryDate)) ? format(new Date(item.expiryDate), 'PPP') : 'N/A',
-        'Vendor': item.vendor ?? 'N/A',
-        'Amount': item.amount ?? '',
-    }));
+    let totalAmount = 0;
+    const data = itemsForYear.map((item, index) => {
+        const amount = item.amount ?? 0;
+        totalAmount += amount;
+        const purchaseD = new Date(item.purchaseDate);
+        return {
+            'Sr. No.': index + 1,
+            'Date of Purchase': isValid(purchaseD) ? format(purchaseD, 'dd-MM-yyyy') : 'N/A',
+            'Department': 'IT',
+            'Location': 'Vahuli Village, Padgha, Bhiwandi',
+            'Detail': item.itemName,
+            'Vendor name': item.vendor ?? 'N/A',
+            'Amount': `${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`,
+            'Release': `${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`,
+        };
+    });
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    const totalRow = {
+        'Detail': 'Gross Total Rs',
+        'Amount': `${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`
+    };
+
+    const ws_name = `Renewals ${year}`;
+    const ws = XLSX.utils.json_to_sheet([], {
+        header: ['Sr. No.', 'Date of Purchase', 'Department', 'Location', 'Detail', 'Vendor name', 'Amount', 'Release'],
+    });
+    
+    XLSX.utils.sheet_add_json(ws, data, { skipHeader: true, origin: 'A2' });
+    XLSX.utils.sheet_add_json(ws, [totalRow], { header: ['Detail', 'Amount'], skipHeader: true, origin: -1 });
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Renewals ${year}`);
+    XLSX.utils.book_append_sheet(wb, ws, ws_name);
     XLSX.writeFile(wb, `Renewals_Report_${year}.xlsx`);
 
     toast({ title: 'Yearly Report Generated', description: `Report for ${year} has been exported.` });
