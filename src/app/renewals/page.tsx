@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -439,12 +440,12 @@ export default function RenewalsPage() {
   
   const handleGenerateYearlyReport = (year: number) => {
     const itemsForYear = renewals.filter(item => {
-        const expiryDate = new Date(item.expiryDate);
-        return isValid(expiryDate) && getYear(expiryDate) === year;
+        const purchaseDate = new Date(item.purchaseDate);
+        return isValid(purchaseDate) && getYear(purchaseDate) === year;
     });
 
     if (itemsForYear.length === 0) {
-        toast({ title: 'No Data', description: `No items found with an expiry year of ${year}.` });
+        toast({ title: 'No Data', description: `No items found with a purchase year of ${year}.` });
         return;
     }
 
