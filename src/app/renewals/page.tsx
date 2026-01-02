@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -42,7 +41,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, FileText, Edit, Search, Eye, Folder as FolderIcon, MoreVertical, FolderPlus, ArrowLeft, Archive } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2, Camera, Upload, X, FileText, Edit, Search, Eye, Folder as FolderIcon, MoreVertical, FolderPlus, ArrowLeft, Archive, FileSpreadsheet } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays, isValid } from 'date-fns';
@@ -55,6 +54,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { FolderDialog } from './_components/folder-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import * as XLSX from 'xlsx';
 
 const renewalSchema = z.object({
   itemName: z.string().min(2, 'Item name is required.'),
@@ -97,6 +98,8 @@ export default function RenewalsPage() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [folderSearch, setFolderSearch] = useState('');
   const [itemSearch, setItemSearch] = useState('');
+  const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
+
 
   const form = useForm<RenewalFormValues>({
     resolver: zodResolver(renewalSchema),
@@ -323,6 +326,7 @@ export default function RenewalsPage() {
     setSelectedFolderId(folderId);
     setView('items');
     setItemSearch('');
+    setSelectedItems({});
   }
 
   const filteredFolders = useMemo(() => {
@@ -353,6 +357,76 @@ export default function RenewalsPage() {
     }
     return 'Renewals & Warranties';
   }, [view, selectedFolderId, folders]);
+
+  const handleSelectionChange = (itemId: string, checked: boolean) => {
+    setSelectedItems(prev => ({ ...prev, [itemId]: checked }));
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    const newSelectedItems: Record<string, boolean> = {};
+    if (checked) {
+      sortedRenewals.forEach(item => {
+        newSelectedItems[item.id] = true;
+      });
+    }
+    setSelectedItems(newSelectedItems);
+  };
+
+  const selectedCount = Object.values(selectedItems).filter(Boolean).length;
+
+  const handleGenerateReport = () => {
+    const itemsToExport = sortedRenewals.filter(item => selectedItems[item.id]);
+    if (itemsToExport.length === 0) {
+        toast({ title: 'No items selected', description: 'Please select items to generate a report.', variant: 'destructive' });
+        return;
+    }
+
+    let totalAmount = 0;
+    const data = itemsToExport.map((item, index) => {
+        const amount = item.amount ?? 0;
+        totalAmount += amount;
+        return {
+            'Sr. No.': index + 1,
+            'Department': 'IT',
+            'Location': 'Vakali Village, Padgha, Bhiwandi',
+            'Details': item.itemName,
+            'Tender name': item.vendor ?? 'N/A',
+            'Amount': `${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`,
+            'Release': `${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`,
+        };
+    });
+
+    // Add total row
+    const totalRow = {
+        'Details': 'Gross Total Rs',
+        'Amount': `${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`
+    };
+
+    const ws = XLSX.utils.json_to_sheet(data, {
+        header: ['Sr. No.', 'Department', 'Location', 'Details', 'Tender name', 'Amount', 'Release'],
+        skipHeader: false,
+    });
+
+    // Manually add the title
+    XLSX.utils.sheet_add_aoa(ws, [['Request for payment release']], { origin: 'D1' });
+
+    // Append the total row
+    XLSX.utils.sheet_add_json(ws, [totalRow], {
+        header: ['Details', 'Amount'],
+        skipHeader: true,
+        origin: -1,
+    });
+    
+    // Style the title and total
+    ws['!merges'] = [{ s: { r: 0, c: 3 }, e: { r: 0, c: 6 } }]; // Merge title cells
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Payment Request');
+    XLSX.writeFile(wb, 'Payment_Request.xlsx');
+
+    toast({ title: 'Report Generated', description: 'The payment request has been exported.' });
+  };
+
 
   if (isLoading) {
     return (
@@ -470,10 +544,19 @@ export default function RenewalsPage() {
           <Button onClick={() => handleOpenDialog('add', null)} className="whitespace-nowrap">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Item
           </Button>
+          <Button onClick={handleGenerateReport} disabled={selectedCount === 0}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> Generate Report
+          </Button>
       </div>
        <Table>
           <TableHeader>
           <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox
+                  checked={sortedRenewals.length > 0 && selectedCount === sortedRenewals.length}
+                  onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
+                />
+              </TableHead>
               <TableHead>Item Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Purchase Date</TableHead>
@@ -490,6 +573,12 @@ export default function RenewalsPage() {
 
               return (
                   <TableRow key={renewal.id}>
+                      <TableCell>
+                          <Checkbox
+                              checked={selectedItems[renewal.id] || false}
+                              onCheckedChange={(checked) => handleSelectionChange(renewal.id, Boolean(checked))}
+                          />
+                      </TableCell>
                       <TableCell className="font-medium">{renewal.itemName}</TableCell>
                       <TableCell>{renewal.type}</TableCell>
                       <TableCell>{isValid(purchaseD) ? format(purchaseD, 'PPP') : 'N/A'}</TableCell>
@@ -511,7 +600,7 @@ export default function RenewalsPage() {
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="text-center h-24">
+              <TableCell colSpan={7} className="text-center h-24">
                   {itemSearch ? "No items match your search." : "This folder is empty."}
               </TableCell>
             </TableRow>
