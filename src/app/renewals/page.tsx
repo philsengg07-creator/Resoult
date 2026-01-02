@@ -251,7 +251,7 @@ export default function RenewalsPage() {
   }
 
   const onSubmit = (data: RenewalFormValues) => {
-     const renewalData: Omit<TrackedItem, 'id'> = {
+     const renewalData: Omit<TrackedItem, 'id' | 'createdAt'> = {
       ...data,
       purchaseDate: data.purchaseDate.toISOString(),
       expiryDate: data.expiryDate.toISOString(),
@@ -265,7 +265,7 @@ export default function RenewalsPage() {
       updateRenewal(dialogState.item.id, renewalData);
       toast({ title: 'Success', description: 'Item updated.' });
     } else {
-      addRenewal(renewalData);
+      addRenewal({...renewalData, createdAt: new Date().toISOString()});
       toast({ title: 'Success', description: 'New item added.' });
     }
     
@@ -346,7 +346,11 @@ export default function RenewalsPage() {
   }, [renewals, selectedFolderId, itemSearch]);
 
   const sortedRenewals = useMemo(() => {
-    return [...displayedRenewals].sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+    return [...displayedRenewals].sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+    });
   }, [displayedRenewals]);
 
   const currentFolderName = useMemo(() => {

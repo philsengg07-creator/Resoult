@@ -41,6 +41,7 @@ export interface TrackedItem {
   type: TrackedItemType;
   purchaseDate: string;
   expiryDate: string;
+  createdAt: string;
   amount?: number;
   vendor?: string;
   notes?: string;
