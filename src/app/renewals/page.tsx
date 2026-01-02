@@ -389,12 +389,14 @@ export default function RenewalsPage() {
     const data = itemsToExport.map((item, index) => {
         const amount = item.amount ?? 0;
         totalAmount += amount;
+        const purchaseD = new Date(item.purchaseDate);
         return {
             'Sr. No.': index + 1,
+            'Date of Purchase': isValid(purchaseD) ? format(purchaseD, 'dd-MM-yyyy') : 'N/A',
             'Department': 'IT',
-            'Location': 'Vakali Village, Padgha, Bhiwandi',
-            'Details': item.itemName,
-            'Tender name': item.vendor ?? 'N/A',
+            'Location': 'Vahuli Village, Padgha, Bhiwandi',
+            'Detail': item.itemName,
+            'Vendor name': item.vendor ?? 'N/A',
             'Amount': `${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`,
             'Release': `${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`,
         };
@@ -402,28 +404,35 @@ export default function RenewalsPage() {
 
     // Add total row
     const totalRow = {
-        'Details': 'Gross Total Rs',
+        'Detail': 'Gross Total Rs',
         'Amount': `${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/-`
     };
-
-    const ws = XLSX.utils.json_to_sheet(data, {
-        header: ['Sr. No.', 'Department', 'Location', 'Details', 'Tender name', 'Amount', 'Release'],
-        skipHeader: false,
+    
+    const ws = XLSX.utils.json_to_sheet([], {
+        header: ['Sr. No.', 'Date of Purchase', 'Department', 'Location', 'Detail', 'Vendor name', 'Amount', 'Release'],
     });
 
     // Manually add the title
     XLSX.utils.sheet_add_aoa(ws, [['Request for payment release']], { origin: 'D1' });
+    
+    // Add data rows starting from A3 to leave a blank row after title.
+    XLSX.utils.sheet_add_json(ws, data, {
+        skipHeader: true,
+        origin: 'A3',
+    });
 
     // Append the total row
     XLSX.utils.sheet_add_json(ws, [totalRow], {
-        header: ['Details', 'Amount'],
+        header: ['Detail', 'Amount'],
         skipHeader: true,
         origin: -1,
     });
     
-    // Style the title and total
-    ws['!merges'] = [{ s: { r: 0, c: 3 }, e: { r: 0, c: 6 } }]; // Merge title cells
-
+    // Style the title
+    if (ws['D1']) {
+      ws['!merges'] = [{ s: { r: 0, c: 3 }, e: { r: 0, c: 6 } }]; // Merge title cells
+    }
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Payment Request');
     XLSX.writeFile(wb, 'Payment_Request.xlsx');
