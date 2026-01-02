@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, Edit, Save, X, Download, PlusCircle, FileText, Upload, DownloadCloud } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X, Download, PlusCircle, FileText, Upload, DownloadCloud, Eye } from 'lucide-react';
 import { type CustomForm, type FormEntry, type CustomFormField, type Attachment } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import * as XLSX from 'xlsx';
+import Image from 'next/image';
 
 
 const ENCRYPTION_KEY = 'adminonly@123';
@@ -124,6 +125,8 @@ export function EntriesDialog({ isOpen, onOpenChange, form, entries, onAddEntry,
   const [newEntry, setNewEntry] = useState<NewEntryState>({ data: {}, notes: '', attachments: [] });
   const [editingEntry, setEditingEntry] = useState<FormEntry | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<FormEntry | null>(null);
+  const [viewingAttachment, setViewingAttachment] = useState<Attachment | null>(null);
+
 
   const getInitialValue = (field: CustomFormField): any => {
     switch (field.type) {
@@ -429,14 +432,24 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
         if (!attachments || attachments.length === 0) return <span className="text-muted-foreground">N/A</span>;
         return (
             <div className="space-y-1">
-                {attachments.map((att, i) => (
-                    <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild>
-                        <a href={att.url} download={att.name}>
-                            <Download className="mr-2 h-3 w-3"/>
-                            <span className="truncate">{att.name}</span>
-                        </a>
-                    </Button>
-                ))}
+                {attachments.map((att, i) => {
+                    const isViewable = att.url.startsWith('data:image') || att.url.startsWith('data:application/pdf');
+                    return (
+                        <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild={!isViewable} onClick={isViewable ? () => setViewingAttachment(att) : undefined}>
+                            {isViewable ? (
+                                <>
+                                    <Eye className="mr-2 h-3 w-3"/>
+                                    <span className="truncate">{att.name}</span>
+                                </>
+                            ) : (
+                                <a href={att.url} download={att.name}>
+                                    <Download className="mr-2 h-3 w-3"/>
+                                    <span className="truncate">{att.name}</span>
+                                </a>
+                            )}
+                        </Button>
+                    )
+                })}
             </div>
         )
     }
@@ -655,15 +668,25 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
                                         ))}
                                     </>
                                 ) : (
-                                    entry.attachments && entry.attachments.length > 0 ? (
-                                        entry.attachments.map((att, i) => (
-                                            <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild>
-                                                <a href={att.url} download={decrypt(att.name)}>
-                                                    <Download className="mr-2 h-3 w-3"/>
-                                                    <span className="truncate">{decrypt(att.name)}</span>
-                                                </a>
-                                            </Button>
-                                        ))
+                                    entry.attachments && decryptObject(entry.attachments, decrypt).length > 0 ? (
+                                        decryptObject(entry.attachments, decrypt).map((att: Attachment, i: number) => {
+                                            const isViewable = att.url.startsWith('data:image') || att.url.startsWith('data:application/pdf');
+                                            return (
+                                                <Button key={i} variant="outline" size="sm" className="h-8 w-full justify-start" asChild={!isViewable} onClick={isViewable ? () => setViewingAttachment(att) : undefined}>
+                                                    {isViewable ? (
+                                                        <>
+                                                            <Eye className="mr-2 h-3 w-3"/>
+                                                            <span className="truncate">{att.name}</span>
+                                                        </>
+                                                    ) : (
+                                                        <a href={att.url} download={att.name}>
+                                                            <Download className="mr-2 h-3 w-3"/>
+                                                            <span className="truncate">{att.name}</span>
+                                                        </a>
+                                                    )}
+                                                </Button>
+                                            )
+                                        })
                                     ) : <span className="text-xs text-muted-foreground">N/A</span>
                                 )}
                             </TableCell>
@@ -717,6 +740,24 @@ const removeFieldAttachment = (fieldName: string, index: number, isEditing: bool
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+    <Dialog open={!!viewingAttachment} onOpenChange={(open) => !open && setViewingAttachment(null)}>
+        <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+            <DialogHeader>
+                <DialogTitle>Attachment: {viewingAttachment?.name}</DialogTitle>
+            </DialogHeader>
+            {viewingAttachment && (
+                <ScrollArea className="h-full w-full rounded-md border mt-4 flex-1">
+                    {viewingAttachment.url.startsWith('data:image') && (
+                        <Image src={viewingAttachment.url} alt="Attachment" width={1200} height={1200} className="w-full h-auto" />
+                    )}
+                    {viewingAttachment.url.startsWith('data:application/pdf') && (
+                        <embed src={viewingAttachment.url} type="application/pdf" width="100%" height="100%" className='h-full min-h-[70vh]' />
+                    )}
+                </ScrollArea>
+            )}
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
