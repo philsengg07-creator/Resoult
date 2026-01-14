@@ -10,8 +10,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { Resend } from 'resend';
-import { database } from '@/lib/firebase';
-import { ref, get } from 'firebase/database';
+import { adminDatabase } from '@/lib/firebase-admin';
 import { type TrackedItem } from '@/types';
 import { differenceInDays, format } from 'date-fns';
 
@@ -34,8 +33,8 @@ const renewalNotificationFlow = ai.defineFlow(
     outputSchema: RenewalNotificationOutputSchema,
   },
   async () => {
-    const renewalsRef = ref(database, `data/${ADMIN_UID}/renewals`);
-    const snapshot = await get(renewalsRef);
+    const renewalsRef = adminDatabase.ref(`data/${ADMIN_UID}/renewals`);
+    const snapshot = await renewalsRef.once('value');
     const renewalsData = snapshot.val();
 
     if (!renewalsData) {
@@ -48,8 +47,13 @@ const renewalNotificationFlow = ai.defineFlow(
     }));
 
     const itemsToNotify = allItems.filter(item => {
-        const daysLeft = differenceInDays(new Date(item.expiryDate), new Date());
-        return daysLeft === 30 || daysLeft === 10;
+        try {
+            const daysLeft = differenceInDays(new Date(item.expiryDate), new Date());
+            return daysLeft === 30 || daysLeft === 10;
+        } catch (e) {
+            console.error(`Invalid date for item ${item.itemName} (${item.id})`);
+            return false;
+        }
     });
 
     if (itemsToNotify.length === 0) {
