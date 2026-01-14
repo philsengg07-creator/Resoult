@@ -13,6 +13,8 @@ import { Resend } from 'resend';
 import { adminDatabase } from '@/lib/firebase-admin';
 import { type TrackedItem } from '@/types';
 import { differenceInDays, format } from 'date-fns';
+import { get } from 'firebase/database';
+import { ref } from 'firebase/database';
 
 const ADMIN_UID = 'Pb2Pgfb4EiXMGLrNV1y24i3qa6C3';
 
@@ -33,30 +35,42 @@ const renewalNotificationFlow = ai.defineFlow(
     outputSchema: RenewalNotificationOutputSchema,
     trigger: {
         schedule: {
-            cron: '* * * * *', // Runs every minute for testing
+            cron: '0 0 * * *', // Runs daily at midnight UTC
             timeZone: 'UTC',
         },
     },
   },
   async () => {
-    console.log(`[${new Date().toISOString()}] Running scheduled test notification...`);
+    console.log(`[${new Date().toISOString()}] Running daily renewal check...`);
+    const renewalsRef = ref(adminDatabase, `data/${ADMIN_UID}/renewals`);
+    const snapshot = await get(renewalsRef);
+    const renewalsData = snapshot.val();
+
+    if (!renewalsData) {
+      console.log('No renewal items found in the database.');
+      return { sent: false, count: 0 };
+    }
+
+    const allItems: TrackedItem[] = Object.keys(renewalsData).map(key => ({
+        id: key,
+        ...renewalsData[key],
+    }));
+
+    const upcomingRenewals = allItems.filter(item => {
+      const daysLeft = differenceInDays(new Date(item.expiryDate), new Date());
+      return daysLeft === 30 || daysLeft === 10;
+    });
+
+    if (upcomingRenewals.length === 0) {
+      console.log('No items are due for renewal notification today.');
+      return { sent: false, count: 0 };
+    }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    const testItems = [
-      {
-        itemName: 'Automated Test Renewal 1',
-        expiryDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-      },
-      {
-        itemName: 'Automated Test Renewal 2',
-        expiryDate: new Date(new Date().setDate(new Date().getDate() + 10)),
-      },
-    ];
-
     const emailHtml = `
-      <h1>Upcoming Renewals (Automated Test)</h1>
-      <p>This is an automated test email to verify the scheduled flow.</p>
+      <h1>Upcoming Renewals Reminder</h1>
+      <p>The following items are due for renewal soon:</p>
       <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
         <thead>
           <tr>
@@ -66,13 +80,13 @@ const renewalNotificationFlow = ai.defineFlow(
           </tr>
         </thead>
         <tbody>
-          ${testItems
+          ${upcomingRenewals
             .map(
               item => `
             <tr>
               <td>${item.itemName}</td>
-              <td>${format(item.expiryDate, 'PPP')}</td>
-              <td>${Math.round((item.expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}</td>
+              <td>${format(new Date(item.expiryDate), 'PPP')}</td>
+              <td>${differenceInDays(new Date(item.expiryDate), new Date())}</td>
             </tr>
           `
             )
@@ -85,14 +99,14 @@ const renewalNotificationFlow = ai.defineFlow(
       await resend.emails.send({
         from: 'onboarding@resend.dev',
         to: 'philsengg07@gmail.com',
-        subject: 'Upcoming Renewal Reminder (Automated Test)',
+        subject: 'Upcoming Renewal Reminder',
         html: emailHtml,
       });
-      console.log('Successfully sent automated test notification email.');
-      return { sent: true, count: testItems.length };
+      console.log(`Successfully sent notification for ${upcomingRenewals.length} items.`);
+      return { sent: true, count: upcomingRenewals.length };
     } catch (error) {
       console.error('Resend API Error:', error);
-      throw new Error('Failed to send automated test notification email.');
+      throw new Error('Failed to send renewal notification email.');
     }
   }
 );
