@@ -7,6 +7,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminDashboard } from '../tickets/admin-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { sendTestNotification } from '@/ai/flows/test-notification-flow';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { data: tickets, loading: ticketsLoading } = useDatabaseList<Ticket>('tickets');
@@ -14,7 +18,9 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
-  
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const { toast } = useToast();
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -29,6 +35,35 @@ export default function DashboardPage() {
       }
     }
   }, [user, router, isClient, authLoading]);
+
+  const handleSendTestNotification = async () => {
+    setIsSendingTest(true);
+    try {
+      const result = await sendTestNotification();
+      if (result.sent) {
+        toast({
+          title: 'Test Email Sent!',
+          description: `An email was sent to ${result.to} with ${result.count} sample items.`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to Send Test Email',
+          description: 'The test email could not be sent. Please check the logs.',
+        });
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An error occurred while sending the test email.',
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
 
   const isLoading = !isClient || authLoading || ticketsLoading || renewalsLoading;
 
@@ -47,7 +82,15 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : user?.role === 'Admin' ? (
-        <AdminDashboard tickets={tickets} renewals={renewals} />
+        <>
+            <AdminDashboard tickets={tickets} renewals={renewals} />
+            <div className="flex justify-start">
+                 <Button onClick={handleSendTestNotification} disabled={isSendingTest}>
+                    {isSendingTest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send Test Notification
+                </Button>
+            </div>
+        </>
       ) : null}
     </div>
   );
