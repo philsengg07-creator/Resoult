@@ -33,17 +33,20 @@ const renewalNotificationFlow = ai.defineFlow(
     outputSchema: RenewalNotificationOutputSchema,
     trigger: {
         schedule: {
-            cron: '0 0 * * *', // Runs every day at midnight UTC
+            cron: '*/5 * * * *', // Runs every 5 minutes for testing
             timeZone: 'UTC',
         },
     },
   },
   async () => {
+    console.log(`[${new Date().toISOString()}] Running renewal notification check...`);
+
     const renewalsRef = adminDatabase.ref(`data/${ADMIN_UID}/renewals`);
     const snapshot = await renewalsRef.once('value');
     const renewalsData = snapshot.val();
 
     if (!renewalsData) {
+      console.log('No renewal data found. Skipping notification.');
       return { sent: false, count: 0 };
     }
 
@@ -64,9 +67,11 @@ const renewalNotificationFlow = ai.defineFlow(
     });
 
     if (itemsToNotify.length === 0) {
+      console.log('No items due for notification today. Skipping email.');
       return { sent: false, count: 0 };
     }
 
+    console.log(`Found ${itemsToNotify.length} items to notify. Sending email...`);
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const emailHtml = `
@@ -103,7 +108,7 @@ const renewalNotificationFlow = ai.defineFlow(
         subject: 'Upcoming Renewal Reminder',
         html: emailHtml,
       });
-
+      console.log('Successfully sent notification email.');
       return { sent: true, count: itemsToNotify.length };
     } catch (error) {
       console.error('Resend API Error:', error);
