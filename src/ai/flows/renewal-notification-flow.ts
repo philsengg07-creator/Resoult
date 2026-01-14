@@ -8,11 +8,11 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { Resend } from 'resend';
 import { adminDatabase } from '@/lib/firebase-admin';
 import { type TrackedItem } from '@/types';
-import { differenceInDays, format } from 'date-fns';
+import { differenceInDays, format, addDays } from 'date-fns';
 
 const ADMIN_UID = 'Pb2Pgfb4EiXMGLrNV1y24i3qa6C3';
 
@@ -33,6 +33,61 @@ const renewalNotificationFlow = ai.defineFlow(
     outputSchema: RenewalNotificationOutputSchema,
   },
   async () => {
+    // --- START: Test Notification Logic ---
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    
+    // Create a fake item for the test notification
+    const testItemsToNotify = [
+      { 
+        itemName: 'Test Renewal Item', 
+        expiryDate: addDays(new Date(), 30).toISOString(),
+      }
+    ];
+
+    const emailHtml = `
+      <h1>Upcoming Renewals (TEST)</h1>
+      <p>This is a test notification. The following items are due for renewal soon:</p>
+      <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th>Item Name</th>
+            <th>Expiry Date</th>
+            <th>Days Left</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${testItemsToNotify
+            .map(
+              item => `
+            <tr>
+              <td>${item.itemName}</td>
+              <td>${format(new Date(item.expiryDate), 'PPP')}</td>
+              <td>${differenceInDays(new Date(item.expiryDate), new Date())}</td>
+            </tr>
+          `
+            )
+            .join('')}
+        </tbody>
+      </table>
+    `;
+
+    try {
+      await resend.emails.send({
+        from: 'onboarding@resend.dev',
+        to: 'philsengg07@gmail.com',
+        subject: 'Upcoming Renewal Reminder (TEST)',
+        html: emailHtml,
+      });
+
+      return { sent: true, count: testItemsToNotify.length };
+    } catch (error) {
+      console.error('Resend API Error:', error);
+      throw new Error('Failed to send test notification email.');
+    }
+    // --- END: Test Notification Logic ---
+
+    /*
+    // --- START: Original Notification Logic ---
     const renewalsRef = adminDatabase.ref(`data/${ADMIN_UID}/renewals`);
     const snapshot = await renewalsRef.once('value');
     const renewalsData = snapshot.val();
@@ -102,5 +157,7 @@ const renewalNotificationFlow = ai.defineFlow(
       console.error('Resend API Error:', error);
       throw new Error('Failed to send notification email.');
     }
+    // --- END: Original Notification Logic ---
+    */
   }
 );
