@@ -6,13 +6,21 @@ import { z } from 'zod';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
+const plugins = [
+  googleAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  }),
+];
+
+// The 'next' plugin is only compatible with the Next.js server environment,
+// not the standalone Genkit development server.
+if (process.env.GENKIT_ENV !== 'dev') {
+  plugins.push(next());
+}
+
+
 export const ai = genkit({
-  plugins: [
-    next(),
-    googleAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    }),
-  ],
+  plugins,
   logLevel: 'debug',
   enableTracingAndMetrics: true,
 });
