@@ -35,13 +35,13 @@ const renewalNotificationFlow = ai.defineFlow(
     outputSchema: RenewalNotificationOutputSchema,
     trigger: {
         schedule: {
-            cron: '0 0 * * *', // Runs daily at midnight UTC
+            cron: '*/2 * * * *', // Runs every 2 minutes for testing
             timeZone: 'UTC',
         },
     },
   },
   async () => {
-    console.log(`[${new Date().toISOString()}] Running daily renewal check...`);
+    console.log(`[${new Date().toISOString()}] Running scheduled renewal check...`);
     const renewalsRef = ref(adminDatabase, `data/${ADMIN_UID}/renewals`);
     const snapshot = await get(renewalsRef);
     const renewalsData = snapshot.val();
