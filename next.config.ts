@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+      // Allow more time for server actions to complete, e.g., for AI flows.
+      timeout: 120, // 2 minutes
+    },
+  },
   images: {
     remotePatterns: [
       {
