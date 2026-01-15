@@ -9,6 +9,7 @@ import { AdminDashboard } from '../tickets/admin-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { sendTestNotification } from '@/ai/flows/test-notification-flow';
+import { sendRenewalNotifications } from '@/ai/flows/renewal-notification-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
+  const [isSendingReal, setIsSendingReal] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -63,6 +65,33 @@ export default function DashboardPage() {
       setIsSendingTest(false);
     }
   };
+  
+  const handleSendRealNotification = async () => {
+    setIsSendingReal(true);
+    try {
+      const result = await sendRenewalNotifications();
+      if (result.sent) {
+        toast({
+          title: 'Renewal Email Sent!',
+          description: `An email was sent for ${result.count} upcoming renewal(s).`,
+        });
+      } else {
+        toast({
+          title: 'No Renewals Due',
+          description: 'No items were found that are due for a renewal notification today.',
+        });
+      }
+    } catch (error) {
+      console.error('Error sending renewal notification:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An error occurred while sending the renewal email.',
+      });
+    } finally {
+      setIsSendingReal(false);
+    }
+  };
 
 
   const isLoading = !isClient || authLoading || ticketsLoading || renewalsLoading;
@@ -84,8 +113,12 @@ export default function DashboardPage() {
       ) : user?.role === 'Admin' ? (
         <>
             <AdminDashboard tickets={tickets} renewals={renewals} />
-            <div className="flex justify-start">
-                 <Button onClick={handleSendTestNotification} disabled={isSendingTest}>
+            <div className="flex justify-start gap-4">
+                 <Button onClick={handleSendRealNotification} disabled={isSendingReal}>
+                    {isSendingReal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send Renewal Notification
+                </Button>
+                 <Button onClick={handleSendTestNotification} disabled={isSendingTest} variant="outline">
                     {isSendingTest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Send Test Notification
                 </Button>
