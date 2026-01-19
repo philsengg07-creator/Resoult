@@ -58,6 +58,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import * as XLSX from 'xlsx';
 import { YearlyReportDialog } from './_components/yearly-report-dialog';
+import { scheduleRenewalNotifications } from './actions';
+import { Loader2 } from 'lucide-react';
 
 const renewalSchema = z.object({
   itemName: z.string().min(2, 'Item name is required.'),
@@ -83,6 +85,7 @@ export default function RenewalsPage() {
   
   const [dialogState, setDialogState] = useState<{ open: boolean, mode: 'add' | 'edit' | 'view', item: TrackedItem | null }>({ open: false, mode: 'add', item: null });
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -253,27 +256,43 @@ export default function RenewalsPage() {
     if(fileInput) fileInput.value = '';
   }
 
-  const onSubmit = (data: RenewalFormValues) => {
-     const renewalData: Omit<TrackedItem, 'id' | 'createdAt'> = {
-      ...data,
-      purchaseDate: data.purchaseDate.toISOString(),
-      expiryDate: data.expiryDate.toISOString(),
-      amount: data.amount ?? undefined,
-      vendor: data.vendor ?? '',
-      notes: data.notes ?? '',
-      folderId: data.folderId === 'no-folder' ? '' : data.folderId,
-    };
+  const onSubmit = async (data: RenewalFormValues) => {
+    setIsSubmitting(true);
+    try {
+        const renewalData: Omit<TrackedItem, 'id' | 'createdAt' | 'scheduledEmailId10' | 'scheduledEmailId30'> = {
+            ...data,
+            purchaseDate: data.purchaseDate.toISOString(),
+            expiryDate: data.expiryDate.toISOString(),
+            amount: data.amount ?? undefined,
+            vendor: data.vendor ?? '',
+            notes: data.notes ?? '',
+            folderId: data.folderId === 'no-folder' ? '' : data.folderId,
+        };
 
-    if (dialogState.mode === 'edit' && dialogState.item) {
-      updateRenewal(dialogState.item.id, renewalData);
-      toast({ title: 'Success', description: 'Item updated.' });
-    } else {
-      addRenewal({...renewalData, createdAt: new Date().toISOString()});
-      toast({ title: 'Success', description: 'New item added.' });
+        let itemToSchedule: TrackedItem;
+
+        if (dialogState.mode === 'edit' && dialogState.item) {
+            updateRenewal(dialogState.item.id, renewalData);
+            itemToSchedule = { ...dialogState.item, ...renewalData };
+            toast({ title: 'Success', description: 'Item updated.' });
+        } else {
+            const newItemWithDate = { ...renewalData, createdAt: new Date().toISOString() };
+            const newItemId = addRenewal(newItemWithDate);
+            itemToSchedule = { ...newItemWithDate, id: newItemId };
+            toast({ title: 'Success', description: 'New item added.' });
+        }
+
+        await scheduleRenewalNotifications(itemToSchedule);
+        toast({ title: 'Notifications Scheduled', description: 'Renewal reminders have been scheduled successfully.' });
+
+    } catch (error) {
+        console.error("Error submitting form or scheduling notifications:", error);
+        toast({ title: 'Error', description: 'An unexpected error occurred.', variant: 'destructive' });
+    } finally {
+        setIsSubmitting(false);
+        form.reset();
+        setDialogState({ open: false, mode: 'add', item: null });
     }
-    
-    form.reset();
-    setDialogState({ open: false, mode: 'add', item: null });
   };
   
   const handleOpenDialog = (mode: 'add' | 'edit' | 'view', item: TrackedItem | null) => {
@@ -947,7 +966,10 @@ export default function RenewalsPage() {
                          <Button variant="outline" onClick={() => setDialogState({open: false, mode: 'add', item: null})}>Cancel</Button>
                     </DialogClose>
                     {dialogState.mode !== 'view' && (
-                        <Button type="submit" form="renewal-form">{dialogState.mode === 'edit' ? 'Save Changes' : 'Add Item'}</Button>
+                        <Button type="submit" form="renewal-form" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {dialogState.mode === 'edit' ? 'Save Changes' : 'Add Item'}
+                        </Button>
                     )}
                 </DialogFooter>
             </DialogContent>

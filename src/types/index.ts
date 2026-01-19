@@ -48,6 +48,8 @@ export interface TrackedItem {
   attachment?: string;
   attachmentName?: string;
   folderId?: string;
+  scheduledEmailId30?: string;
+  scheduledEmailId10?: string;
 }
 
 // Types for Custom Encrypted Forms
