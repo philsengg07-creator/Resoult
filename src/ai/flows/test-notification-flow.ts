@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A flow for sending a test renewal notification.
@@ -30,6 +29,10 @@ const testNotificationFlow = ai.defineFlow(
     outputSchema: TestNotificationOutputSchema,
   },
   async () => {
+    if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'your-resend-api-key') {
+        throw new Error('Resend API key is not configured. Please add your key to the .env file.');
+    }
+
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const testItems = [
@@ -83,7 +86,7 @@ const testNotificationFlow = ai.defineFlow(
       return { sent: true, count: testItems.length, to: toEmail };
     } catch (error) {
       console.error('Resend API Error:', error);
-      throw new Error('Failed to send test notification email.');
+      throw new Error('Failed to send test notification email. Please check the server logs for details.');
     }
   }
 );
