@@ -64,13 +64,12 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
     );
   }
 
-  // Execute all scheduling promises but don't let them block.
-  // We'll get the results and update the database with any new IDs.
+  // Execute all scheduling promises and wait for them to settle.
   const results = await Promise.allSettled(schedulingPromises);
 
   const updates: { scheduledEmailId30?: string | null; scheduledEmailId10?: string | null } = {};
   
-  // We always want to update the scheduled IDs, even if it's to nullify them.
+  // Always set the IDs to null initially to clear out old ones.
   updates.scheduledEmailId30 = null;
   updates.scheduledEmailId10 = null;
 
@@ -85,13 +84,15 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
   });
 
   // Save the new scheduled email IDs back to the database.
+  // This operation is now "fire-and-forget" to prevent it from blocking the UI.
   if (Object.keys(updates).length > 0) {
     try {
       const itemRef = adminDatabase.ref(`renewals/${item.id}`);
-      await itemRef.update(updates);
-      console.log(`Updated scheduled email IDs for item ${item.id}`);
+      itemRef.update(updates)
+        .then(() => console.log(`Successfully updated scheduled email IDs for item ${item.id}.`))
+        .catch(e => console.error(`Failed to update renewal item ${item.id} in the background.`, e));
     } catch (e) {
-      console.error(`Failed to update renewal item ${item.id} with scheduled email IDs.`, e);
+      console.error(`Failed to initiate update for renewal item ${item.id}.`, e);
       // We don't re-throw here to avoid blocking the client.
     }
   }
