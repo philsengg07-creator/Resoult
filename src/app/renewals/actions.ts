@@ -18,7 +18,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
   const expiryDate = new Date(item.expiryDate);
   
   // NOTE: The logic to cancel previously scheduled emails has been removed to resolve a type error.
-  // This means that if you change an expiry date, old notifications will still be sent.
+  // This means that if you change an expiry date, old notifications might still be sent.
   // This is a temporary measure to ensure the application remains stable.
 
   const schedulingPromises: Promise<{ type: '30-day' | '10-day'; id: string | null }>[] = [];
@@ -32,7 +32,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
         to: NOTIFY_EMAIL,
         subject: `30-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 30 days on ${format(expiryDate, 'PPP')}.</p>`,
-        scheduled_at: notificationDate30,
+        scheduled_at: notificationDate30.toISOString(),
       }).then(({ data, error }) => {
         if (error) {
           console.error('Resend 30-day scheduling error:', error);
@@ -51,7 +51,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
         to: NOTIFY_EMAIL,
         subject: `10-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 10 days on ${format(expiryDate, 'PPP')}.</p>`,
-        scheduled_at: notificationDate10,
+        scheduled_at: notificationDate10.toISOString(),
       }).then(({ data, error }) => {
         if (error) {
           console.error('Resend 10-day scheduling error:', error);
