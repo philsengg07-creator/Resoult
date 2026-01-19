@@ -26,14 +26,15 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
   // --- Scheduling Operations ---
   const notificationDate30 = subDays(expiryDate, 30);
   if (isFuture(notificationDate30)) {
-    schedulingPromises.push(
-      resend.emails.send({
+    const payload: any = {
         from: 'onboarding@resend.dev',
         to: NOTIFY_EMAIL,
         subject: `30-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 30 days on ${format(expiryDate, 'PPP')}.</p>`,
         scheduled_at: notificationDate30.toISOString(),
-      }).then(({ data, error }) => {
+    };
+    schedulingPromises.push(
+      resend.emails.send(payload).then(({ data, error }) => {
         if (error) {
           console.error('Resend 30-day scheduling error:', error);
           return { type: '30-day', id: null };
@@ -45,14 +46,15 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
 
   const notificationDate10 = subDays(expiryDate, 10);
   if (isFuture(notificationDate10)) {
-    schedulingPromises.push(
-      resend.emails.send({
+    const payload: any = {
         from: 'onboarding@resend.dev',
         to: NOTIFY_EMAIL,
         subject: `10-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 10 days on ${format(expiryDate, 'PPP')}.</p>`,
         scheduled_at: notificationDate10.toISOString(),
-      }).then(({ data, error }) => {
+    };
+    schedulingPromises.push(
+      resend.emails.send(payload).then(({ data, error }) => {
         if (error) {
           console.error('Resend 10-day scheduling error:', error);
           return { type: '10-day', id: null };
@@ -85,7 +87,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
   // Save the new scheduled email IDs back to the database.
   if (Object.keys(updates).length > 0) {
     try {
-      const itemRef = adminDatabase.ref(`data/renewals/${item.id}`);
+      const itemRef = adminDatabase.ref(`renewals/${item.id}`);
       await itemRef.update(updates);
       console.log(`Updated scheduled email IDs for item ${item.id}`);
     } catch (e) {
