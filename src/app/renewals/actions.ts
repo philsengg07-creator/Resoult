@@ -5,13 +5,12 @@ import { Resend } from 'resend';
 import { type TrackedItem } from '@/types';
 import { subDays, format } from 'date-fns';
 import { adminDatabase } from '@/lib/firebase-admin';
-import { ref, update } from 'firebase/database';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || 'philsengg07@gmail.com';
 
 export async function scheduleRenewalNotifications(item: TrackedItem) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'your-resend-api-key') {
     console.error('Resend API key is not configured. Skipping email scheduling.');
     return;
   }
@@ -21,7 +20,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem) {
   const notificationDate10 = subDays(expiryDate, 10);
 
   const now = new Date();
-  const updates: { scheduledEmailId30?: string; scheduledEmailId10?: string } = {};
+  const updates: { scheduledEmailId30?: string | null; scheduledEmailId10?: string | null } = {};
 
   // Cancel old emails if they exist, to prevent duplicate notifications on update
   if (item.scheduledEmailId30) {
@@ -57,7 +56,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem) {
       console.error('Failed to schedule 30-day email', e);
     }
   } else {
-    updates.scheduledEmailId30 = ''; // Clear it if date is in the past
+    updates.scheduledEmailId30 = null; // Use null to clear it in firebase
   }
 
   // Schedule 10-day notification
@@ -76,16 +75,17 @@ export async function scheduleRenewalNotifications(item: TrackedItem) {
         console.error('Failed to schedule 10-day email', e);
     }
   } else {
-    updates.scheduledEmailId10 = ''; // Clear it if date is in the past
+    updates.scheduledEmailId10 = null; // Use null to clear it in firebase
   }
 
   // Save the new scheduled email IDs back to the database
   if (Object.keys(updates).length > 0) {
     try {
-      const itemRef = ref(adminDatabase, `data/renewals/${item.id}`);
-      await update(itemRef, updates);
+      const itemRef = adminDatabase.ref(`data/renewals/${item.id}`);
+      await itemRef.update(updates);
     } catch(e) {
       console.error(`Failed to update renewal item ${item.id} with scheduled email IDs.`, e);
+      throw new Error('Failed to save notification schedule to database.');
     }
   }
 }
