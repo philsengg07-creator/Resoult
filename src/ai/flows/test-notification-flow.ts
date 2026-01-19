@@ -73,7 +73,7 @@ const testNotificationFlow = ai.defineFlow(
       </table>
     `;
 
-    const toEmail = 'philsengg07@gmail.com';
+    const toEmail = process.env.NOTIFY_EMAIL || 'philsengg07@gmail.com';
 
     try {
       await resend.emails.send({

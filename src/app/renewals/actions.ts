@@ -8,7 +8,7 @@ import { adminDatabase } from '@/lib/firebase-admin';
 import { ref, update } from 'firebase/database';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || 'delivered@resend.dev';
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || 'philsengg07@gmail.com';
 
 export async function scheduleRenewalNotifications(item: TrackedItem) {
   if (!process.env.RESEND_API_KEY) {
