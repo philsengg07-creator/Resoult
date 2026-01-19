@@ -32,7 +32,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
         to: NOTIFY_EMAIL,
         subject: `30-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 30 days on ${format(expiryDate, 'PPP')}.</p>`,
-        scheduled_at: notificationDate30,
+        scheduledAt: notificationDate30,
       }).then(({ data, error }) => {
         if (error) {
           console.error('Resend 30-day scheduling error:', error);
