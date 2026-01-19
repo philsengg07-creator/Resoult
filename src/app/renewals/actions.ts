@@ -3,89 +3,110 @@
 
 import { Resend } from 'resend';
 import { type TrackedItem } from '@/types';
-import { subDays, format } from 'date-fns';
+import { subDays, format, isFuture } from 'date-fns';
 import { adminDatabase } from '@/lib/firebase-admin';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || 'philsengg07@gmail.com';
 
-export async function scheduleRenewalNotifications(item: TrackedItem) {
+// Helper function to safely cancel an email
+async function cancelEmail(emailId: string | null | undefined, reason: string): Promise<void> {
+  if (!emailId) return;
+  try {
+    await resend.emails.cancel(emailId);
+    console.log(`Successfully cancelled ${reason} email: ${emailId}`);
+  } catch (e) {
+    // It's often okay if cancellation fails (e.g., email already sent or cancelled).
+    console.warn(`Could not cancel ${reason} email ${emailId}:`, e);
+  }
+}
+
+export async function scheduleRenewalNotifications(item: TrackedItem): Promise<void> {
   if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'your-resend-api-key') {
     console.error('Resend API key is not configured. Skipping email scheduling.');
     return;
   }
-  
+
   const expiryDate = new Date(item.expiryDate);
+  const operations: Promise<any>[] = [];
+
+  // --- Cancellation Operations ---
+  operations.push(cancelEmail(item.scheduledEmailId30, '30-day'));
+  operations.push(cancelEmail(item.scheduledEmailId10, '10-day'));
+  
+  // Wait for cancellations to finish before scheduling new ones.
+  await Promise.allSettled(operations);
+  
+  const schedulingPromises: Promise<{ type: '30-day' | '10-day'; id: string | null }>[] = [];
+
+  // --- Scheduling Operations ---
   const notificationDate30 = subDays(expiryDate, 30);
-  const notificationDate10 = subDays(expiryDate, 10);
-
-  const now = new Date();
-  const updates: { scheduledEmailId30?: string | null; scheduledEmailId10?: string | null } = {};
-
-  // Cancel old emails if they exist, to prevent duplicate notifications on update
-  if (item.scheduledEmailId30) {
-    try {
-      await resend.emails.cancel(item.scheduledEmailId30);
-    } catch (e) {
-      console.warn(`Failed to cancel 30-day email ${item.scheduledEmailId30}`, e);
-    }
-  }
-  if (item.scheduledEmailId10) {
-    try {
-      await resend.emails.cancel(item.scheduledEmailId10);
-    } catch (e) {
-      console.warn(`Failed to cancel 10-day email ${item.scheduledEmailId10}`, e);
-    }
-  }
-
-  // --- Schedule new emails ---
-
-  // Schedule 30-day notification
-  if (notificationDate30 > now) {
-    try {
-      const { data, error } = await resend.emails.send({
+  if (isFuture(notificationDate30)) {
+    schedulingPromises.push(
+      resend.emails.send({
         from: 'onboarding@resend.dev',
         to: NOTIFY_EMAIL,
         subject: `30-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 30 days on ${format(expiryDate, 'PPP')}.</p>`,
         scheduledAt: notificationDate30.toISOString(),
-      });
-      if (data) updates.scheduledEmailId30 = data.id;
-      if (error) console.error('Resend 30-day scheduling error:', error);
-    } catch(e) {
-      console.error('Failed to schedule 30-day email', e);
-    }
-  } else {
-    updates.scheduledEmailId30 = null; // Use null to clear it in firebase
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('Resend 30-day scheduling error:', error);
+          return { type: '30-day', id: null };
+        }
+        return { type: '30-day', id: data!.id };
+      })
+    );
   }
 
-  // Schedule 10-day notification
-  if (notificationDate10 > now) {
-    try {
-       const { data, error } = await resend.emails.send({
+  const notificationDate10 = subDays(expiryDate, 10);
+  if (isFuture(notificationDate10)) {
+    schedulingPromises.push(
+      resend.emails.send({
         from: 'onboarding@resend.dev',
         to: NOTIFY_EMAIL,
         subject: `10-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 10 days on ${format(expiryDate, 'PPP')}.</p>`,
         scheduledAt: notificationDate10.toISOString(),
-      });
-       if (data) updates.scheduledEmailId10 = data.id;
-       if (error) console.error('Resend 10-day scheduling error:', error);
-    } catch(e) {
-        console.error('Failed to schedule 10-day email', e);
-    }
-  } else {
-    updates.scheduledEmailId10 = null; // Use null to clear it in firebase
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('Resend 10-day scheduling error:', error);
+          return { type: '10-day', id: null };
+        }
+        return { type: '10-day', id: data!.id };
+      })
+    );
   }
 
-  // Save the new scheduled email IDs back to the database
+  // Execute all scheduling promises but don't let them block.
+  // We'll get the results and update the database with any new IDs.
+  const results = await Promise.allSettled(schedulingPromises);
+
+  const updates: { scheduledEmailId30?: string | null; scheduledEmailId10?: string | null } = {};
+  
+  // We always want to update the scheduled IDs, even if it's to nullify them.
+  updates.scheduledEmailId30 = null;
+  updates.scheduledEmailId10 = null;
+
+  results.forEach(result => {
+    if (result.status === 'fulfilled' && result.value) {
+      if (result.value.type === '30-day') {
+        updates.scheduledEmailId30 = result.value.id;
+      } else if (result.value.type === '10-day') {
+        updates.scheduledEmailId10 = result.value.id;
+      }
+    }
+  });
+
+  // Save the new scheduled email IDs back to the database.
   if (Object.keys(updates).length > 0) {
     try {
-      const itemRef = adminDatabase.ref(`renewals/${item.id}`);
+      const itemRef = adminDatabase.ref(`data/renewals/${item.id}`);
       await itemRef.update(updates);
-    } catch(e) {
+      console.log(`Updated scheduled email IDs for item ${item.id}`);
+    } catch (e) {
       console.error(`Failed to update renewal item ${item.id} with scheduled email IDs.`, e);
-      throw new Error('Failed to save notification schedule to database.');
+      // We don't re-throw here to avoid blocking the client.
     }
   }
 }
