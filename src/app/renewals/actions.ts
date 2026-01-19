@@ -48,7 +48,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem) {
         to: NOTIFY_EMAIL,
         subject: `30-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 30 days on ${format(expiryDate, 'PPP')}.</p>`,
-        scheduledAt: notificationDate30,
+        scheduledAt: notificationDate30.toISOString(),
       });
       if (data) updates.scheduledEmailId30 = data.id;
       if (error) console.error('Resend 30-day scheduling error:', error);
@@ -67,7 +67,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem) {
         to: NOTIFY_EMAIL,
         subject: `10-Day Renewal Reminder: ${item.itemName}`,
         html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 10 days on ${format(expiryDate, 'PPP')}.</p>`,
-        scheduledAt: notificationDate10,
+        scheduledAt: notificationDate10.toISOString(),
       });
        if (data) updates.scheduledEmailId10 = data.id;
        if (error) console.error('Resend 10-day scheduling error:', error);
@@ -81,7 +81,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem) {
   // Save the new scheduled email IDs back to the database
   if (Object.keys(updates).length > 0) {
     try {
-      const itemRef = adminDatabase.ref(`data/renewals/${item.id}`);
+      const itemRef = adminDatabase.ref(`renewals/${item.id}`);
       await itemRef.update(updates);
     } catch(e) {
       console.error(`Failed to update renewal item ${item.id} with scheduled email IDs.`, e);
