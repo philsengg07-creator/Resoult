@@ -23,6 +23,8 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
 
   const schedulingPromises: Promise<{ type: '30-day' | '10-day'; id: string | null }>[] = [];
 
+  const vendorInfo = item.vendor ? ` from vendor <strong>${item.vendor}</strong>` : '';
+
   // --- Scheduling Operations ---
   const notificationDate30 = subDays(expiryDate, 30);
   if (isFuture(notificationDate30)) {
@@ -30,7 +32,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
         from: 'onboarding@resend.dev',
         to: NOTIFY_EMAIL,
         subject: `30-Day Renewal Reminder: ${item.itemName}`,
-        html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 30 days on ${format(expiryDate, 'PPP')}.</p>`,
+        html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>"${vendorInfo} is set to expire in 30 days on ${format(expiryDate, 'PPP')}.</p>`,
         scheduled_at: notificationDate30.toISOString(),
     };
     schedulingPromises.push(
@@ -50,7 +52,7 @@ export async function scheduleRenewalNotifications(item: TrackedItem): Promise<v
         from: 'onboarding@resend.dev',
         to: NOTIFY_EMAIL,
         subject: `10-Day Renewal Reminder: ${item.itemName}`,
-        html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>" is set to expire in 10 days on ${format(expiryDate, 'PPP')}.</p>`,
+        html: `<p>This is a reminder that your item "<strong>${item.itemName}</strong>"${vendorInfo} is set to expire in 10 days on ${format(expiryDate, 'PPP')}.</p>`,
         scheduled_at: notificationDate10.toISOString(),
     };
     schedulingPromises.push(

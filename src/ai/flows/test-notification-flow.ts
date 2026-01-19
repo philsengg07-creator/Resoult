@@ -39,10 +39,12 @@ const testNotificationFlow = ai.defineFlow(
       {
         itemName: 'Sample Renewal 1',
         expiryDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+        vendor: 'Test Vendor A',
       },
       {
         itemName: 'Sample Renewal 2',
         expiryDate: new Date(new Date().setDate(new Date().getDate() + 10)),
+        vendor: 'Test Vendor B',
       },
     ];
 
@@ -53,6 +55,7 @@ const testNotificationFlow = ai.defineFlow(
         <thead>
           <tr>
             <th>Item Name</th>
+            <th>Vendor</th>
             <th>Expiry Date</th>
             <th>Days Left</th>
           </tr>
@@ -60,9 +63,10 @@ const testNotificationFlow = ai.defineFlow(
         <tbody>
           ${testItems
             .map(
-              item => `
+              (item: any) => `
             <tr>
               <td>${item.itemName}</td>
+              <td>${item.vendor || 'N/A'}</td>
               <td>${format(item.expiryDate, 'PPP')}</td>
               <td>${Math.round((item.expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}</td>
             </tr>
