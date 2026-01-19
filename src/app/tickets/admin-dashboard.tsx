@@ -1,6 +1,6 @@
 
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { type Ticket, type TrackedItem } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts'
 import type { ChartConfig } from '@/components/ui/chart';
 import { differenceInDays, format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { sendTestNotification } from '@/ai/flows/test-notification-flow';
+import { Loader2, Mail } from 'lucide-react';
 
 interface AdminDashboardProps {
   tickets: Ticket[];
@@ -38,6 +41,9 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function AdminDashboard({ tickets, renewals }: AdminDashboardProps) {
+  const { toast } = useToast();
+  const [isSendingTest, setIsSendingTest] = useState(false);
+
   const ticketCounts = useMemo(() => {
     const counts = {
       Unopened: 0,
@@ -72,6 +78,26 @@ export function AdminDashboard({ tickets, renewals }: AdminDashboardProps) {
     { status: 'In Progress', tickets: ticketCounts['In Progress'], fill: 'var(--color-In Progress)' },
     { status: 'Closed', tickets: ticketCounts.Closed, fill: 'var(--color-Closed)' },
   ];
+
+  const handleSendTestEmail = async () => {
+    setIsSendingTest(true);
+    try {
+      const result = await sendTestNotification();
+      toast({
+        title: 'Test Email Sent!',
+        description: `A test email was successfully sent to ${result.to}.`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Uh oh! Something went wrong.',
+        description: 'Could not send the test email. Please check your Resend API key and server logs.',
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
 
   return (
     <div className="grid gap-6">
@@ -159,6 +185,23 @@ export function AdminDashboard({ tickets, renewals }: AdminDashboardProps) {
                 </CardContent>
             </Card>
         </div>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Test Email Notifications</CardTitle>
+                <Mail className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <p className="text-xs text-muted-foreground mb-4">
+                    Click the button to send a test email and verify your Resend integration is working.
+                </p>
+                <Button onClick={handleSendTestEmail} disabled={isSendingTest} className="w-full">
+                    {isSendingTest ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Send Test Email
+                </Button>
+            </CardContent>
+        </Card>
     </div>
   );
 }
