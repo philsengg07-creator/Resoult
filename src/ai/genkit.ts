@@ -1,6 +1,6 @@
 
 import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
+import { googleAI } from '@genkit-ai/google-genai';
 import next from '@genkit-ai/next';
 import { z } from 'zod';
 import * as dotenv from 'dotenv';
